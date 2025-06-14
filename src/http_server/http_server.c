@@ -1,5 +1,6 @@
 #include "http_server.h"
 #include "user/controller/register_user_controller.h"
+#include "user/controller/http_response.h"
 
 #include <stdio.h>
 #include <stdlib.h>
