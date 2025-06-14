@@ -1,13 +1,10 @@
-#include "user/controller/register_user_controller.h"
+#include "register_user_controller.h"
 #include "user/register_user_dto.h"
 #include "user/service/register_user_service.h"
 #include <cjson/cJSON.h>
 #include <string.h>
-#include <unistd.h>
-#include <stdio.h>
 
-
-int handle_register_user(int client_fd, const char *body) {
+int register_user_controller(const char *body, http_response_t *out_res) {
     cJSON *root = cJSON_Parse(body);
     if (!root) return 400;
 
@@ -30,26 +27,24 @@ int handle_register_user(int client_fd, const char *body) {
 
     int result = register_user_service(&dto);
 
-    const char *resp = NULL;
+    cJSON_Delete(root);
 
+    // 응답 구성
     if (result == 0) {
-        resp = "HTTP/1.1 201 Created\r\n"
-               "Content-Type: application/json\r\n"
-               "Content-Length: 29\r\n\r\n"
-               "{\"result\":\"User Registered\"}";
-    } else if (result == -1) {
-        resp = "HTTP/1.1 409 Conflict\r\n"
-               "Content-Type: application/json\r\n"
-               "Content-Length: 33\r\n\r\n"
-               "{\"error\":\"UserID already exists\"}";
-    } else {
-        resp = "HTTP/1.1 507 Insufficient Storage\r\n"
-               "Content-Type: application/json\r\n"
-               "Content-Length: 29\r\n\r\n"
-               "{\"error\":\"User limit reached\"}";
+        http_response_init(out_res, 201, "Created");
+        http_response_set_header(out_res, "Content-Type", "application/json");
+        http_response_set_body(out_res, "{\"result\":\"User Registered\"}", strlen("{\"result\":\"User Registered\"}"));
+    }
+    else if (result == -1) {
+        http_response_init(out_res, 409, "Conflict");
+        http_response_set_header(out_res, "Content-Type", "application/json");
+        http_response_set_body(out_res, "{\"error\":\"UserID already exists\"}", strlen("{\"error\":\"UserID already exists\"}"));
+    }
+    else {
+        http_response_init(out_res, 507, "Insufficient Storage");
+        http_response_set_header(out_res, "Content-Type", "application/json");
+        http_response_set_body(out_res, "{\"error\":\"User limit reached\"}", strlen("{\"error\":\"User limit reached\"}"));
     }
 
-    write(client_fd, resp, strlen(resp));
-    cJSON_Delete(root);
     return 0;
 }

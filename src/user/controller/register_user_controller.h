@@ -1,6 +1,8 @@
 #ifndef REGISTER_USER_CONTROLLER_H
 #define REGISTER_USER_CONTROLLER_H
 
-int handle_register_user(int client_fd, const char *body);
+#include "http_response.h"
+
+int register_user_controller(const char *body, http_response_t *out_res);
 
 #endif

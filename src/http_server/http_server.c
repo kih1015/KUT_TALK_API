@@ -32,14 +32,21 @@ static void *handle_client_thread(void *arg) {
     }
     buf[len] = '\0';
 
-    // [1] 요청 메서드/경로 검사
     if (strncmp(buf, "POST /users", 11) == 0) {
-        // [2] 바디 시작 위치 추출
         char *body = strstr(buf, "\r\n\r\n");
         if (body) {
             body += 4;
-            // [3] 컨트롤러에게 위임
-            handle_register_user(client_fd, body);
+            http_response_t res;
+            int status = register_user_controller(body, &res);
+            if (status == 0) {
+                http_response_write(client_fd, &res);
+            } else {
+                const char *resp =
+                    "HTTP/1.1 400 Bad Request\r\n"
+                    "Content-Length: 11\r\n\r\n"
+                    "Bad Request";
+                write(client_fd, resp, strlen(resp));
+            }
         } else {
             const char *resp =
                 "HTTP/1.1 400 Bad Request\r\n"
