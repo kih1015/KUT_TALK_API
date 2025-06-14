@@ -1,7 +1,6 @@
 # 컴파일러 및 플래그 설정
 CC := gcc
 CFLAGS := -Wall -Wextra -g \
-          -I. \
           -Isrc \
           -Isrc/http_server \
           -Isrc/user \
