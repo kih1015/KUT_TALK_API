@@ -1,6 +1,7 @@
 #include "register_user_controller.h"
 #include "user/register_user_dto.h"
 #include "user/service/register_user_service.h"
+#include "http_response.h"
 #include <cjson/cJSON.h>
 #include <string.h>
 
