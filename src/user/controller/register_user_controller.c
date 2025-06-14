@@ -1,10 +1,11 @@
-#include "register_user_controller.h"
-#include "../../register_user_dto.h"
-#include "../../service/register_user_service.h"
+#include "user/controller/register_user_controller.h"
+#include "user/register_user_dto.h"
+#include "user/service/register_user_service.h"
 #include <cjson/cJSON.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+
 
 int handle_register_user(int client_fd, const char *body) {
     cJSON *root = cJSON_Parse(body);

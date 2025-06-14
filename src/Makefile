@@ -1,11 +1,6 @@
-# Makefile 위치: src/ (현재 디렉토리)
+# Makefile 위치: src/
 CC := gcc
-CFLAGS := -Wall -Wextra -g \
-          -I. \
-          -Ihttp_server \
-          -Iuser \
-          -Iuser/controller \
-          -Iuser/service
+CFLAGS := -Wall -Wextra -g -I.
 LDFLAGS := -lpthread -lcjson
 
 SRC := \
