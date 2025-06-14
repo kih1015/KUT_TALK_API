@@ -6,6 +6,7 @@ LDFLAGS := -lpthread -lcjson
 SRC := \
     main.c \
     http_server/http_server.c \
+    http_server/http_response.c \
     user/controller/register_user_controller.c \
     user/service/register_user_service.c
 
