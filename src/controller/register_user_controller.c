@@ -1,6 +1,5 @@
 #include "register_user_controller.h"
 #include "service/register_user_service.h"
-#include <cjson/cJSON.h>
 
 int register_user_controller(
     const char *userid,
@@ -19,9 +18,3 @@ int register_user_controller(
         default: return 507; // Insufficient Storage: User limit
     }
 }
-
-/**
- * Route handler: parses JSON, calls controller
- * Returns only HTTP status code (int) without http_response_t
- */
-

@@ -18,11 +18,12 @@ include_directories(
 # 소스 파일
 set(SOURCES
         src/main.c
-        src/controller/http_response.c
         src/controller/register_user_controller.c
         src/service/register_user_service.c
         src/adapter/register_user_adapter.c
         src/http_server/http_server.c
+        src/http_server/handler_mapping.c
+        src/http_server/handler_mapping.h
 )
 
 # 실행 파일 생성

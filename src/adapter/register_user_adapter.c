@@ -1,30 +1,80 @@
-#include "register_user_adapter.h"
-
-#include <cjson/cJSON.h>
-
+#include "adapter/register_user_adapter.h"
 #include "controller/register_user_controller.h"
 
-int register_user_adapter(const char *body) {
+#include <cjson/cJSON.h>
+#include <stdio.h>
+#include <string.h>
+
+int register_user_adapter(
+    const char *body,
+    char       *resp_buf,
+    size_t      buf_size
+) {
+    int code;
+    const char *resp_body = NULL;
+
+    // JSON 파싱
     cJSON *root = cJSON_Parse(body);
     if (!root) {
-        return 400; // Bad Request: Invalid JSON
-    }
-
-    cJSON *jnick = cJSON_GetObjectItem(root, "nickname");
-    cJSON *juid = cJSON_GetObjectItem(root, "userid");
-    cJSON *jpwd = cJSON_GetObjectItem(root, "password");
-
-    if (!cJSON_IsString(jnick) || !cJSON_IsString(juid) || !cJSON_IsString(jpwd)) {
+        code      = 400;
+        resp_body = "{\"error\":\"Invalid JSON\"}";
+    } else {
+        cJSON *jnick = cJSON_GetObjectItem(root, "nickname");
+        cJSON *juid  = cJSON_GetObjectItem(root, "userid");
+        cJSON *jpwd  = cJSON_GetObjectItem(root, "password");
+        if (!cJSON_IsString(jnick) ||
+            !cJSON_IsString(juid)  ||
+            !cJSON_IsString(jpwd)) {
+            code      = 400;
+            resp_body = "{\"error\":\"Missing or invalid fields\"}";
+        } else {
+            int svc = register_user_controller(
+                juid->valuestring,
+                jnick->valuestring,
+                jpwd->valuestring
+            );
+            if (svc == 0) {
+                code      = 201;
+                resp_body = NULL;
+            } else if (svc == -1) {
+                code      = 409;
+                resp_body = "{\"error\":\"Duplicate userid\"}";
+            } else if (svc == -2) {
+                code      = 507;
+                resp_body = "{\"error\":\"Storage full\"}";
+            } else {
+                code      = 500;
+                resp_body = "{\"error\":\"Internal Error\"}";
+            }
+        }
         cJSON_Delete(root);
-        return 400; // Bad Request: Missing or invalid fields
     }
 
-    int status = register_user_controller(
-        jnick->valuestring,
-        juid->valuestring,
-        jpwd->valuestring
-    );
-    cJSON_Delete(root);
+    // Reason phrase
+    const char *reason =
+        (code == 201 ? "Created" :
+         code == 400 ? "Bad Request" :
+         code == 404 ? "Not Found" :
+         code == 409 ? "Conflict" :
+         code == 507 ? "Insufficient Storage" :
+                        "Internal Server Error");
 
-    return status;
+    int body_len = resp_body ? (int)strlen(resp_body) : 0;
+    // 헤더+바디를 resp_buf에 작성
+    int total = snprintf(
+        resp_buf, buf_size,
+        "HTTP/1.1 %d %s\r\n"
+        "Content-Length: %d\r\n"
+        "Content-Type: application/json\r\n"
+        "\r\n"
+        "%s",
+        code, reason, body_len,
+        resp_body ? resp_body : ""
+    );
+
+    // 버퍼를 넘쳤다면 음수 리턴
+    if (total < 0 || (size_t)total >= buf_size) {
+        return -1;
+    }
+    return total;
 }
