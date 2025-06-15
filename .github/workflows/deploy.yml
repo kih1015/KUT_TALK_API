@@ -53,5 +53,5 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT ubuntu@$DEPLOY_HOST \
             "export DB_USER='${DB_USER}' DB_PASS='${DB_PASS}' && \
-            pkill -f kut_talk_api || true
+            pkill -f kut_talk_api || true \
             nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &"
