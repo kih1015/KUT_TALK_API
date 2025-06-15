@@ -13,33 +13,40 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Install dependencies (gcc, make, cJSON)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential libcjson-dev
+      - name: Install dependencies (gcc, cmake, cJSON)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libcjson-dev
 
-    - name: Build with make
-      working-directory: ./src
-      run: make
+      - name: Configure with CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
 
-    - name: Setup PEM key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.DEPLOY_KEY_PEM }}" > ~/.ssh/deploy_key.pem
-        chmod 400 ~/.ssh/deploy_key.pem
+      - name: Build with CMake
+        run: |
+          cd build
+          cmake --build . --config Release
 
-    - name: Deploy binary to remote server
-      run: |
-        scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -P $DEPLOY_PORT \
-          src/http_app ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server
+      - name: Setup PEM key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY_PEM }}" > ~/.ssh/deploy_key.pem
+          chmod 400 ~/.ssh/deploy_key.pem
 
-    - name: Restart server remotely
-      run: |
-        ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -p $DEPLOY_PORT \
-          ubuntu@$DEPLOY_HOST << 'EOF'
-        pkill -f kuttalk_server || true
-        nohup /home/ubuntu/kuttalk_server > /home/ubuntu/kuttalk.log 2>&1 &
-        EOF
+      - name: Deploy binary to remote server
+        run: |
+          scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -P $DEPLOY_PORT \
+            build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
+
+      - name: Restart server remotely
+        run: |
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -p $DEPLOY_PORT \
+            ubuntu@$DEPLOY_HOST << 'EOF'
+            pkill -f kut_talk_api || true
+            nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &
+            EOF
