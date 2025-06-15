@@ -1,7 +1,6 @@
 #include "adapter/register_user_adapter.h"
 #include "handler_mapping.h"
 #include <fcntl.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
