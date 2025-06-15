@@ -11,14 +11,14 @@ jobs:
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASS: ${{ secrets.DB_PASS }}
+      DB_USER:     ${{ secrets.DB_USER }}
+      DB_PASS:     ${{ secrets.DB_PASS }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install dependencies (gcc, cmake, cJSON)
+      - name: Install dependencies (gcc, cmake, cJSON, MySQL client)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libcjson-dev libmysqlclient-dev pkg-config
@@ -34,15 +34,16 @@ jobs:
           cd build
           cmake --build . --config Release
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_KEY_PEM }}
-
       - name: Ensure remote deploy directory exists
-        run: |
-          ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT ubuntu@$DEPLOY_HOST \
-            "rm -rf /home/ubuntu/kuttalk_server && mkdir -p /home/ubuntu/kuttalk_server"
+        uses: appleboy/ssh-action@master
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ubuntu
+          key:      ${{ secrets.DEPLOY_KEY_PEM }}
+          port:     ${{ secrets.DEPLOY_PORT }}
+          script: |
+            rm -rf /home/ubuntu/kuttalk_server
+            mkdir -p /home/ubuntu/kuttalk_server
 
       - name: Deploy binary to remote server
         run: |
@@ -50,8 +51,12 @@ jobs:
             build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
 
       - name: Restart server remotely
-        run: |
-          ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT ubuntu@$DEPLOY_HOST \
-            "export DB_USER='${DB_USER}' DB_PASS='${DB_PASS}' && \
-            pkill -f kut_talk_api || true && \
-            nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &"
+        uses: appleboy/ssh-action@master
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ubuntu
+          key:      ${{ secrets.DEPLOY_KEY_PEM }}
+          port:     ${{ secrets.DEPLOY_PORT }}
+          script: |
+            pkill -f kut_talk_api || true
+            nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &
