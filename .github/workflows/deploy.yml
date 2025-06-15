@@ -74,4 +74,3 @@ jobs:
             export DB_USER=${{ env.DB_USER }}
             export DB_PASS=${{ env.DB_PASS }}
             nohup ./kut_talk_api > ../kut_talk.log 2>&1 </dev/null &
-            exit 0
