@@ -40,18 +40,24 @@ jobs:
 
       - name: Ensure remote deploy directory exists
         run: |
-          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -p $DEPLOY_PORT \
-          ubuntu@$DEPLOY_HOST "mkdir -p /home/ubuntu/kuttalk_server"
+          ssh -i ~/.ssh/deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              -p $DEPLOY_PORT \
+              ubuntu@$DEPLOY_HOST "mkdir -p /home/ubuntu/kuttalk_server"
 
       - name: Deploy binary to remote server
         run: |
-          scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -P $DEPLOY_PORT \
-            build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
+          scp -i ~/.ssh/deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              -P $DEPLOY_PORT \
+              build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
 
       - name: Restart server remotely
         run: |
-          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no -p $DEPLOY_PORT \
-            ubuntu@$DEPLOY_HOST << 'EOF'
+          ssh -i ~/.ssh/deploy_key.pem \
+              -o StrictHostKeyChecking=no \
+              -p $DEPLOY_PORT \
+              ubuntu@$DEPLOY_HOST << 'EOF'
             pkill -f kut_talk_api || true
             nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &
-            EOF
+          EOF
