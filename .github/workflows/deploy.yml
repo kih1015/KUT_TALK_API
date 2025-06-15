@@ -53,7 +53,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY_PEM }}
           port: ${{ secrets.DEPLOY_PORT }}
           source: "build/kut_talk_api"
-          target: "/home/ubuntu/kuttalk_server/"
+          target: "/home/ubuntu/kuttalk_server/kut_talk_api"
 
       - name: Restart server remotely
         uses: appleboy/ssh-action@v0.1.5
