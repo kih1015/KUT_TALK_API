@@ -37,17 +37,17 @@ jobs:
           cd build
           cmake --build . --config Release
 
-      # remote build 디렉터리 준비
-      - name: Ensure remote build dir exists
-        uses: appleboy/ssh-action@master
-        with:
-          host:     ${{ secrets.DEPLOY_HOST }}
-          username: ubuntu
-          key:      ${{ secrets.DEPLOY_KEY_PEM }}
-          port:     ${{ secrets.DEPLOY_PORT }}
-          script: |
-            rm -rf /home/ubuntu/kuttalk_server/build
-            mkdir -p /home/ubuntu/kuttalk_server/build
+#      # remote build 디렉터리 준비
+#      - name: Ensure remote build dir exists
+#        uses: appleboy/ssh-action@master
+#        with:
+#          host:     ${{ secrets.DEPLOY_HOST }}
+#          username: ubuntu
+#          key:      ${{ secrets.DEPLOY_KEY_PEM }}
+#          port:     ${{ secrets.DEPLOY_PORT }}
+#          script: |
+#            rm -rf /home/ubuntu/kuttalk_server/build
+#            mkdir -p /home/ubuntu/kuttalk_server/build
 
       # 바이너리 복사 (build/kut_talk_api → remote:/home/ubuntu/kuttalk_server/build/kut_talk_api)
       - name: Deploy binary via SCP
