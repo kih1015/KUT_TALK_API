@@ -71,8 +71,3 @@ jobs:
           script: |
             cd /home/ubuntu/kuttalk_server/build
             pkill -f kut_talk_api || true
-            export DB_USER=${{ env.DB_USER }}
-            export DB_PASS=${{ env.DB_PASS }}
-            nohup /home/ubuntu/kuttalk_server/build > /home/ubuntu/kuttalk.log 2>&1
-            sleep 10
-            exit 0
