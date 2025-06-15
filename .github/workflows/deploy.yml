@@ -65,4 +65,5 @@ jobs:
           script: |
             cd /home/ubuntu/kuttalk_server
             pkill -f kut_talk_api || true
-            nohup ./kut_talk_api > kut_talk.log 2>&1 &
+            nohup ./kut_talk_api > kut_talk.log 2>&1 </dev/null &
+            exit 0
