@@ -56,12 +56,13 @@ jobs:
           target: "/home/ubuntu/kuttalk_server/"
 
       - name: Restart server remotely
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ubuntu
           key: ${{ secrets.DEPLOY_KEY_PEM }}
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
+            cd /home/ubuntu/kuttalk_server
             pkill -f kut_talk_api || true
-            nohup /home/ubuntu/kuttalk_server/build/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &
+            nohup ./kut_talk_api > kut_talk.log 2>&1 &
