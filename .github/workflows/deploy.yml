@@ -32,32 +32,24 @@ jobs:
           cd build
           cmake --build . --config Release
 
-      - name: Setup PEM key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY_PEM }}" > ~/.ssh/deploy_key.pem
-          chmod 400 ~/.ssh/deploy_key.pem
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY_PEM }}
 
       - name: Ensure remote deploy directory exists
         run: |
-          ssh -i ~/.ssh/deploy_key.pem \
-              -o StrictHostKeyChecking=no \
-              -p $DEPLOY_PORT \
-              ubuntu@$DEPLOY_HOST "mkdir -p /home/ubuntu/kuttalk_server"
+          ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT ubuntu@$DEPLOY_HOST \
+            "mkdir -p /home/ubuntu/kuttalk_server || true"
 
       - name: Deploy binary to remote server
         run: |
-          scp -i ~/.ssh/deploy_key.pem \
-              -o StrictHostKeyChecking=no \
-              -P $DEPLOY_PORT \
-              build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
+          scp -o StrictHostKeyChecking=no -P $DEPLOY_PORT \
+            build/kut_talk_api ubuntu@$DEPLOY_HOST:/home/ubuntu/kuttalk_server/kut_talk_api
 
       - name: Restart server remotely
         run: |
-          ssh -i ~/.ssh/deploy_key.pem \
-              -o StrictHostKeyChecking=no \
-              -p $DEPLOY_PORT \
-              ubuntu@$DEPLOY_HOST << 'EOF'
+          ssh -o StrictHostKeyChecking=no -p $DEPLOY_PORT ubuntu@$DEPLOY_HOST << 'EOF'
             pkill -f kut_talk_api || true
             nohup /home/ubuntu/kuttalk_server/kut_talk_api > /home/ubuntu/kuttalk.log 2>&1 &
           EOF
