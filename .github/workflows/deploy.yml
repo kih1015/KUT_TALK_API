@@ -70,4 +70,26 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT }}
           script: |
             cd /home/ubuntu/kuttalk_server/build
-            pkill -f kut_talk_api || true
+              
+            # 기존 프로세스 PID 조회
+            PIDS=$(pgrep -f kut_talk_api || true)
+            if [ -n "$PIDS" ]; then
+              echo "Found existing PID(s): $PIDS"
+              kill -TERM $PIDS
+              echo "Waiting for process to exit..."
+              sleep 5
+            else
+              echo "No existing process found."
+            fi
+              
+            # 환경변수 주입
+            export DB_USER=${{ env.DB_USER }}
+            export DB_PASS=${{ env.DB_PASS }}
+              
+            # 새 서버 기동 (stdin 해제 & 백그라운드)
+            nohup ./kut_talk_api > ../kuttalk.log 2>&1 </dev/null &
+              
+            # 충분히 기동될 때까지 대기
+            sleep 10
+              
+            exit 0
