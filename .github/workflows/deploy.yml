@@ -11,6 +11,8 @@ jobs:
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASS: ${{ secrets.DB_PASS }}
 
     steps:
       - name: Checkout repository
@@ -19,7 +21,7 @@ jobs:
       - name: Install dependencies (gcc, cmake, cJSON)
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libcjson-dev
+          sudo apt-get install -y build-essential cmake libcjson-dev libmysqlclient-dev pkg-config
 
       - name: Configure with CMake
         run: |

@@ -1,48 +1,34 @@
 #include "service/register_user_service.h"
-#include <string.h>
-
-#define MAX_USERS 100
-#define ID_LEN      64
-#define NICK_LEN    64
-#define PW_LEN      64
-
-// 내부 저장용 구조체
-typedef struct {
-    char userid[ID_LEN];
-    char nickname[NICK_LEN];
-    char password[PW_LEN];
-} user_t;
-
-static user_t users[MAX_USERS];
-static int   user_count = 0;
+#include "repository/user_repository.h"
 
 int register_user_service(
     const char *userid,
     const char *nickname,
     const char *password
 ) {
-    // 1) 중복 확인
-    for (int i = 0; i < user_count; ++i) {
-        if (strcmp(users[i].userid, userid) == 0) {
-            return -1;  // 중복된 ID
-        }
+    // 1) userid 중복 검사
+    int uexists = user_repository_exists(userid);
+    if (uexists < 0) {
+        // DB 에러
+        return -2;
+    }
+    if (uexists > 0) {
+        // userid 중복
+        return -1;
     }
 
-    // 2) 공간 확인
-    if (user_count >= MAX_USERS) {
-        return -2;  // 저장 공간 부족
+    // 2) nickname 중복 검사
+    int nexists = user_repository_nickname_exists(nickname);
+    if (nexists < 0) {
+        // DB 에러
+        return -2;
+    }
+    if (nexists > 0) {
+        // nickname 중복 — 같은 에러 코드로 처리하거나, 구분하고 싶다면 별도 음수 코드 사용
+        return -1;
     }
 
-    // 3) 데이터 복사
-    strncpy(users[user_count].userid,   userid,   ID_LEN - 1);
-    users[user_count].userid[ID_LEN-1] = '\0';
-
-    strncpy(users[user_count].nickname, nickname, NICK_LEN - 1);
-    users[user_count].nickname[NICK_LEN-1] = '\0';
-
-    strncpy(users[user_count].password, password, PW_LEN - 1);
-    users[user_count].password[PW_LEN-1] = '\0';
-
-    user_count++;
-    return 0;
+    // 3) 정상 저장
+    int rc = user_repository_add(userid, nickname, password);
+    return (rc == 0 ? 0 : -2);
 }
