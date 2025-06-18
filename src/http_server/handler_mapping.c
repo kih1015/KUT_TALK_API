@@ -17,6 +17,36 @@ const struct route ROUTES[] = {
 };
 const size_t ROUTE_COUNT = sizeof ROUTES / sizeof *ROUTES;
 
+static const char *ALLOWED_ORIGINS[] = {
+    "http://localhost:5173",
+    "https://kuttalk.kro.kr"
+};
+
+static int is_origin_allowed(const char *origin)
+{
+    for (size_t i = 0; i < sizeof ALLOWED_ORIGINS/sizeof *ALLOWED_ORIGINS; ++i)
+        if (strcmp(origin, ALLOWED_ORIGINS[i]) == 0) return 1;
+    return 0;
+}
+
+static const char *find_header(const char *req, const char *name)
+{
+    size_t nlen = strlen(name);
+    const char *p = req;
+    while ((p = strcasestr(p, name)) != NULL) {
+        if (p != req && *(p-1) != '\n' && *(p-1) != '\r') { ++p; continue; }
+        const char *val = p + nlen;
+        while (*val == ' ' || *val == ':') ++val;
+        const char *eol = strpbrk(val, "\r\n");
+        static char buf[256];
+        size_t len = eol ? (size_t)(eol - val) : 255;
+        if (len > 255) len = 255;
+        strncpy(buf, val, len); buf[len] = '\0';
+        return buf;
+    }
+    return NULL;
+}
+
 static int parse_request_line(const char *buf,
                               char method[8], char path[256]) {
     /* "METHOD SP PATH SP HTTP/1.x" 형식 가정 */
@@ -78,6 +108,23 @@ void *handle_client_thread(void *arg)
 
     /* ── 4) 응답 전송 또는 404/500 ───────────────────────────────── */
     if (rlen > 0) {
+        /* ① Origin 헤더 파싱 */
+        const char *origin = find_header(buf, "Origin");
+        int allow = origin && is_origin_allowed(origin);
+
+        if (allow) {
+            /* ② "\r\n\r\n" 앞에 CORS 헤더 삽입 */
+            char *hdr_end = strstr(resp, "\r\n\r\n");
+            if (hdr_end && (size_t)(rlen + strlen(origin) + 64) < sizeof resp) {
+                /* 뒤로 밀기 */
+                size_t tail_len = rlen - (hdr_end - resp);
+                memmove(hdr_end + 2 + tail_len + 62, hdr_end + 2, tail_len); /* 여유 확보 */
+                int add = sprintf(hdr_end + 2,
+                    "Access-Control-Allow-Origin: %s\r\n"
+                    "Access-Control-Allow-Credentials: true\r\n", origin);
+                rlen += add;
+            }
+        }
         write(client_fd, resp, rlen);
     } else if (rlen == -1) {                 /* 라우트 불일치 */
         write(client_fd,
