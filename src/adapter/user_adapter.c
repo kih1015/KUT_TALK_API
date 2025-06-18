@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#define COOKIE_MAX 160        /* 쿠키 헤더 임시 버퍼 크기 */
+#define BODY_OK    "{\"message\":\"Login success\"}"
+#define BODY_FAIL  "{\"error\":\"Invalid credentials\"}"
+
 int user_adapter_register(
     const char *body,
     char *resp_buf,
@@ -87,47 +91,52 @@ int user_adapter_register(
 }
 
 int user_adapter_login(const char *body,
-                       char *resp_buf, size_t buf_sz) {
-    /* 1) JSON 파싱 (userid,password) */
+                       char *resp_buf, size_t buf_sz)
+{
+    /* ---------- 1) JSON 파싱 ---------- */
     cJSON *root = cJSON_Parse(body);
     if (!root)
         return build_simple_resp(resp_buf, buf_sz, HTTP_BAD_REQUEST,
                                  "{\"error\":\"Invalid JSON\"}");
 
     cJSON *juid = cJSON_GetObjectItem(root, "userid");
-    cJSON *jpw = cJSON_GetObjectItem(root, "password");
+    cJSON *jpw  = cJSON_GetObjectItem(root, "password");
     if (!cJSON_IsString(juid) || !cJSON_IsString(jpw)) {
         cJSON_Delete(root);
         return build_simple_resp(resp_buf, buf_sz, HTTP_BAD_REQUEST,
                                  "{\"error\":\"Missing fields\"}");
     }
 
+    /* ---------- 2) 컨트롤러 호출 ---------- */
     struct login_ctl_result ctl =
-            user_controller_login(juid->valuestring, jpw->valuestring);
+        user_controller_login(juid->valuestring, jpw->valuestring);
     cJSON_Delete(root);
 
-    const char *phrase = http_reason_phrase(ctl.status);
-    const char *body_ok = "{\"message\":\"Login success\"}";
-    const char *body_fail = "{\"error\":\"Invalid credentials\"}";
-    const char *resp_body = (ctl.status == HTTP_OK) ? body_ok : body_fail;
-    int body_len = strlen(resp_body);
+    /* ---------- 3) 응답 본문 & 쿠키 준비 ---------- */
+    const char *resp_body = (ctl.status == HTTP_OK) ? BODY_OK : BODY_FAIL;
+    int  body_len         = (int)strlen(resp_body);
 
+    char cookie_hdr[COOKIE_MAX] = "";
+    if (ctl.status == HTTP_OK) {
+        /* 세션 쿠키 헤더 문자열 완성 */
+        snprintf(cookie_hdr, sizeof cookie_hdr,
+                 "Set-Cookie: KTA_SESSION_ID=%s; "
+                 "Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict\r\n",
+                 ctl.session_id);
+    }
+
+    /* ---------- 4) 최종 HTTP 응답 직렬화 ---------- */
     int n = snprintf(resp_buf, buf_sz,
-                     "HTTP/1.1 %d %s\r\n"
-                     "Content-Type: application/json\r\n"
-                     "Content-Length: %d\r\n"
-                     "%s"
-                     "\r\n"
-                     "%s",
-                     ctl.status, phrase, body_len,
-                     ctl.status == HTTP_OK
-                         ? "Set-Cookie: KTA_SESSION_ID=%s; Path=/; Max-Age=604800;"
-                         " HttpOnly; Secure; SameSite=Strict\r\n"
-                         : "",
-                     resp_body);
+        "HTTP/1.1 %d %s\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: %d\r\n"
+        "%s"              /* 쿠키 헤더 또는 빈 문자열 */
+        "\r\n"
+        "%s",
+        ctl.status, http_reason_phrase(ctl.status),
+        body_len,
+        cookie_hdr,
+        resp_body);
 
-    if (ctl.status == HTTP_OK)
-        n = snprintf(resp_buf, buf_sz, resp_buf, ctl.session_id);
-
-    return (n < 0 || n >= (int) buf_sz) ? -1 : n;
+    return (n < 0 || (size_t)n >= buf_sz) ? -1 : n; /* -1 = 버퍼 부족 */
 }

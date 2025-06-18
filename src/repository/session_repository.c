@@ -21,38 +21,58 @@ int session_repository_add(const char *sid,
     MYSQL_STMT *st = mysql_stmt_init(db_conn);
     const char *sql =
         "INSERT INTO sessions(id,userid,expires_at) "
-        "VALUES(?,?,FROM_UNIXTIME(?))";
+        "VALUES( ?, ?, FROM_UNIXTIME(?) )";
 
     if (mysql_stmt_prepare(st, sql, strlen(sql))) {
+        fprintf(stderr, "[prepare] %u : %s\n",
+                mysql_stmt_errno(st), mysql_stmt_error(st));
         mysql_stmt_close(st);
-        return -2;                           /* prepare 실패 */
+        return -2;
     }
 
-    MYSQL_BIND b[3] = {0};
+    /* ---------- 파라미터 바인딩 ---------- */
+    MYSQL_BIND b[3];
+    memset(b, 0, sizeof b);
 
-    /* id */
+    unsigned long id_len  = strlen(sid);   /* ★ 실제 길이 */
+    unsigned long uid_len = strlen(uid);
+
+    /* id (CHAR(64)) */
     b[0].buffer_type   = MYSQL_TYPE_STRING;
     b[0].buffer        = (char *)sid;
-    b[0].buffer_length = 64;
+    b[0].buffer_length = id_len;
+    b[0].length        = &id_len;
 
-    /* userid */
+    /* userid (VARCHAR) */
     b[1].buffer_type   = MYSQL_TYPE_STRING;
     b[1].buffer        = (char *)uid;
-    b[1].buffer_length = strlen(uid);
+    b[1].buffer_length = uid_len;
+    b[1].length        = &uid_len;
 
-    /* expires_at (FROM_UNIXTIME(?)) */
+    /* expires_at (time_t → FROM_UNIXTIME) */
     b[2].buffer_type   = MYSQL_TYPE_LONGLONG;
     b[2].buffer        = &exp;
     b[2].buffer_length = sizeof(exp);
-    b[2].is_unsigned   = 0;               /* time_t 는 signed */
+    b[2].is_unsigned   = 0;                /* time_t 는 signed */
 
-    int rc = mysql_stmt_execute(st) ? mysql_errno(db_conn) : 0;
-    if (rc != 0) {
-        fprintf(stderr, "[sessions] MySQL error %d: %s\n",
-                rc, mysql_error(db_conn));          /* ★추가 */
+    if (mysql_stmt_bind_param(st, b)) {
+        fprintf(stderr, "[bind] %u : %s\n",
+                mysql_stmt_errno(st), mysql_stmt_error(st));
+        mysql_stmt_close(st);
+        return -3;
     }
+
+    /* ---------- 실행 ---------- */
+    if (mysql_stmt_execute(st)) {
+        fprintf(stderr, "[exec] %u : %s\n",
+                mysql_stmt_errno(st), mysql_stmt_error(st));
+        int err = mysql_stmt_errno(st);
+        mysql_stmt_close(st);
+        return err ? -4 : -5;
+    }
+
     mysql_stmt_close(st);
-    return rc;
+    return 0;                              /* 성공 */
 }
 
 /*------------------------------------------------------------------*/

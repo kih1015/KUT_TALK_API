@@ -1,5 +1,6 @@
 #include "service/user_service.h"
 
+#include <stdio.h>
 #include <time.h>
 
 #include "repository/session_repository.h"

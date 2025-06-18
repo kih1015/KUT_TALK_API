@@ -5,6 +5,7 @@
 #include "repository/user_repository.h"
 
 int main(void) {
+    setvbuf(stderr,NULL,_IOLBF,0);
     const char *db_user = getenv("DB_USER");
     const char *db_pass = getenv("DB_PASS");
 

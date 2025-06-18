@@ -1,4 +1,7 @@
 #include "user_controller.h"
+
+#include <stdio.h>
+
 #include "service/user_service.h"
 #include "http_server/http_status.h"
 

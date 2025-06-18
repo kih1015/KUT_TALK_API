@@ -14,7 +14,6 @@ void *handle_client_thread(void *arg)
 {
     int client_fd = *(int *)arg;
     free(arg);
-
     char buf[BUF_SIZE];
     int len = read(client_fd, buf, BUF_SIZE - 1);
     if (len <= 0) {
@@ -22,17 +21,14 @@ void *handle_client_thread(void *arg)
         return NULL;
     }
     buf[len] = '\0';
-
     /* ------------------------------------------------------------
      * ① 요청 라인 판별
      * ---------------------------------------------------------- */
     enum { ENDPOINT_NONE, ENDPOINT_REGISTER, ENDPOINT_LOGIN } ep = ENDPOINT_NONE;
-
-    if (strncmp(buf, "POST /users/login", 17) == 0)          /* 로그인 */
+    if (strncmp(buf, "POST /users/login", 17) == 0)        /* 로그인 */
         ep = ENDPOINT_LOGIN;
     else if (strncmp(buf, "POST /users", 11) == 0)            /* 회원가입 */
         ep = ENDPOINT_REGISTER;
-
     if (ep == ENDPOINT_NONE) {            /* 지원하지 않는 경로 */
         const char *err =
             "HTTP/1.1 404 Not Found\r\n"
