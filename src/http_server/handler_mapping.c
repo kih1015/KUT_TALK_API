@@ -1,4 +1,4 @@
-#include "adapter/user_adapter.h"
+#include "controller/user_controller.h"
 #include "handler_mapping.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -11,15 +11,14 @@
 #define BUF_SIZE    4096
 
 const struct route ROUTES[] = {
-    {"POST", "/users/login", 0, user_adapter_login},
-    {"POST", "/users", 0, user_adapter_register},
-    {"GET", "/users/me", 0, user_adapter_get_me},
-    {"POST", "/users/logout", 0, user_adapter_logout},
+    {"POST", "/users/login", 0, user_controller_login},
+    {"POST", "/users", 0, user_controller_register},
+    {"GET", "/users/me", 0, user_controller_get_me},
+    {"POST", "/users/logout", 0, user_controller_logout},
 };
 const size_t ROUTE_COUNT = sizeof ROUTES / sizeof *ROUTES;
 
-static int parse_request_line(const char *buf,
-                              char method[8], char path[256]) {
+static int parse_request_line(const char *buf, char method[8], char path[256]) {
     /* "METHOD SP PATH SP HTTP/1.x" 형식 가정 */
     const char *sp1 = strchr(buf, ' ');
     if (!sp1 || sp1 - buf >= 7) return -1;
@@ -59,7 +58,7 @@ void *handle_client_thread(void *arg) {
 
     /* ── 2) GET /users/me ───────────────────────────────────────── */
     if (strcmp(method, "GET") == 0 && strcmp(path, "/users/me") == 0) {
-        rlen = user_adapter_get_me(buf, resp, sizeof resp); /* 쿠키 필요 */
+        rlen = user_controller_get_me(buf, resp, sizeof resp); /* 쿠키 필요 */
     }
 
     /* ── 3) POST 엔드포인트 ──────────────────────────────────────── */
@@ -74,11 +73,11 @@ void *handle_client_thread(void *arg) {
         body += 4;
 
         if (strcmp(path, "/users") == 0)
-            rlen = user_adapter_register(body, resp, sizeof resp);
+            rlen = user_controller_register(body, resp, sizeof resp);
         else if (strcmp(path, "/users/login") == 0)
-            rlen = user_adapter_login(body, resp, sizeof resp);
+            rlen = user_controller_login(body, resp, sizeof resp);
         else if (strcmp(path, "/users/logout") == 0)
-            rlen = user_adapter_logout(buf, resp, sizeof resp);
+            rlen = user_controller_logout(buf, resp, sizeof resp);
     }
 
     /* ── 4) 응답 전송 또는 404/500 ───────────────────────────────── */

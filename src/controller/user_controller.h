@@ -1,26 +1,16 @@
 #pragma once
-#include "http_server//http_status.h"
-#include "repository/user_repository.h"
-#include "util/session_id.h"
+#include <stddef.h>
 
-int user_controller_register(
-    const char *userid,
-    const char *nickname,
-    const char *password
-);
+/* body(POST JSON) → HTTP 응답 직렬화 길이(−1 = buf 부족) */
+int user_controller_register(const char *body,
+                             char *resp_buf, size_t buf_sz);
 
-struct login_ctl_result {
-    enum http_status status;
-    char session_id[SESSION_ID_LEN + 1];
-};
+int user_controller_login(const char *body,
+                          char *resp_buf, size_t buf_sz);
 
-struct login_ctl_result user_controller_login(const char *uid, const char *pw);
+/* raw_req = 전체 HTTP 요청 헤더·바디 문자열 */
+int user_controller_get_me(const char *raw_req,
+                           char *resp_buf, size_t buf_sz);
 
-struct me_ctl_result {
-    enum http_status status;
-    struct user_info info;
-};
-
-struct me_ctl_result user_controller_get_me(const char *session_id);
-
-enum http_status user_controller_logout(const char *session_id);
+int user_controller_logout(const char *raw_req,
+                           char *resp_buf, size_t buf_sz);
