@@ -1,5 +1,6 @@
 #pragma once
 #include "http_server//http_status.h"
+#include "repository/user_repository.h"
 #include "util/session_id.h"
 
 int user_controller_register(
@@ -14,3 +15,10 @@ struct login_ctl_result {
 };
 
 struct login_ctl_result user_controller_login(const char *uid, const char *pw);
+
+struct me_ctl_result {
+    enum http_status status;
+    struct user_info info;
+};
+
+struct me_ctl_result user_controller_get_me(const char *session_id);

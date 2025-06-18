@@ -26,3 +26,10 @@ int user_repository_get_hash(
     char *out_hash,
     size_t buf_size)
 ;
+
+struct user_info {
+    char userid[256];
+    char nickname[256];
+};
+
+int user_repository_get_info(const char *userid, struct user_info *out);

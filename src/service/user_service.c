@@ -62,3 +62,15 @@ int user_service_login(const char *uid,
 
     return 0;                                      /* 성공 */
 }
+
+int user_service_get_me(const char *sid, struct user_info *out)
+{
+    char uid[256]; time_t exp = 0;
+    int rc = session_repository_find(sid, uid, &exp);
+    if (rc != 0)          return -1;          /* 세션 없음 */
+    if (exp < time(NULL)) return -1;          /* 만료 */
+
+    if (user_repository_get_info(uid, out) != 0)
+        return -2;                            /* DB 오류 or no user */
+    return 0;
+}

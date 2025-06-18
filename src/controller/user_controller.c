@@ -1,7 +1,4 @@
 #include "user_controller.h"
-
-#include <stdio.h>
-
 #include "service/user_service.h"
 #include "http_server/http_status.h"
 
@@ -28,10 +25,18 @@ struct login_ctl_result user_controller_login(const char *uid, const char *pw) {
     int rc = user_service_login(uid, pw, r.session_id);
     if (rc == 0) {
         r.status = HTTP_OK;
-    }
-    else if (rc == -1) {
+    } else if (rc == -1) {
         r.status = HTTP_UNAUTHORIZED;
-    }
-    else r.status = HTTP_INTERNAL_ERROR;
+    } else r.status = HTTP_INTERNAL_ERROR;
+    return r;
+}
+
+struct me_ctl_result user_controller_get_me(const char *sid)
+{
+    struct me_ctl_result r;
+    int rc = user_service_get_me(sid, &r.info);
+    if (rc == 0)       r.status = HTTP_OK;
+    else if (rc == -1) r.status = HTTP_UNAUTHORIZED;
+    else               r.status = HTTP_INTERNAL_ERROR;
     return r;
 }

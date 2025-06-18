@@ -181,3 +181,43 @@ int user_repository_get_hash(const char *userid,
 
     return 0; /* 성공 */
 }
+
+int user_repository_get_info(const char *userid, struct user_info *out)
+{
+    if (!db_conn) return -1;
+
+    MYSQL_STMT *st = mysql_stmt_init(db_conn);
+    const char *sql = "SELECT userid, nickname FROM users WHERE userid = ?";
+    if (mysql_stmt_prepare(st, sql, strlen(sql))) {
+        mysql_stmt_close(st); return -2;
+    }
+
+    unsigned long uid_len = strlen(userid);
+    MYSQL_BIND p = {0};
+    p.buffer_type   = MYSQL_TYPE_STRING;
+    p.buffer        = (char *)userid;
+    p.buffer_length = uid_len;
+    p.length        = &uid_len;
+    mysql_stmt_bind_param(st, &p);
+
+    if (mysql_stmt_execute(st)) { mysql_stmt_close(st); return -3; }
+
+    MYSQL_BIND r[2] = {0};
+    unsigned long len1 = sizeof out->userid - 1;
+    unsigned long len2 = sizeof out->nickname - 1;
+    r[0].buffer_type = r[1].buffer_type = MYSQL_TYPE_STRING;
+    r[0].buffer = out->userid;   r[0].buffer_length = len1;
+    r[0].length = &len1;
+    r[1].buffer = out->nickname; r[1].buffer_length = len2;
+    r[1].length = &len2;
+    mysql_stmt_bind_result(st, r);
+
+    int fs = mysql_stmt_fetch(st);
+    mysql_stmt_close(st);
+    if (fs == MYSQL_NO_DATA) return 1;
+    if (fs) return -4;
+
+    out->userid[len1]   = '\0';
+    out->nickname[len2] = '\0';
+    return 0;
+}

@@ -13,3 +13,8 @@ int user_adapter_login(
     char *resp_buf,
     size_t buf_sz
 );
+
+int user_adapter_get_me(
+    const char *raw_req,
+    char *resp_buf, size_t buf_sz
+);

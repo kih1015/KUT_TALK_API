@@ -10,66 +10,82 @@
 
 #define BUF_SIZE    4096
 
+const struct route ROUTES[] = {
+    {"POST", "/users/login", 0, user_adapter_login},
+    {"POST", "/users", 0, user_adapter_register},
+    { "GET", "/users/me", 0, user_adapter_get_me }, /* prefix 매칭 */
+};
+const size_t ROUTE_COUNT = sizeof ROUTES / sizeof *ROUTES;
+
+static int parse_request_line(const char *buf,
+                              char method[8], char path[256]) {
+    /* "METHOD SP PATH SP HTTP/1.x" 형식 가정 */
+    const char *sp1 = strchr(buf, ' ');
+    if (!sp1 || sp1 - buf >= 7) return -1;
+    strncpy(method, buf, sp1 - buf);
+    method[sp1 - buf] = '\0';
+
+    const char *sp2 = strchr(sp1 + 1, ' ');
+    if (!sp2 || sp2 - (sp1 + 1) >= 255) return -1;
+    strncpy(path, sp1 + 1, sp2 - (sp1 + 1));
+    path[sp2 - (sp1 + 1)] = '\0';
+    return 0;
+}
+
 void *handle_client_thread(void *arg)
 {
     int client_fd = *(int *)arg;
     free(arg);
+
     char buf[BUF_SIZE];
     int len = read(client_fd, buf, BUF_SIZE - 1);
-    if (len <= 0) {
-        close(client_fd);
-        return NULL;
-    }
+    if (len <= 0) { close(client_fd); return NULL; }
     buf[len] = '\0';
-    /* ------------------------------------------------------------
-     * ① 요청 라인 판별
-     * ---------------------------------------------------------- */
-    enum { ENDPOINT_NONE, ENDPOINT_REGISTER, ENDPOINT_LOGIN } ep = ENDPOINT_NONE;
-    if (strncmp(buf, "POST /users/login", 17) == 0)        /* 로그인 */
-        ep = ENDPOINT_LOGIN;
-    else if (strncmp(buf, "POST /users", 11) == 0)            /* 회원가입 */
-        ep = ENDPOINT_REGISTER;
-    if (ep == ENDPOINT_NONE) {            /* 지원하지 않는 경로 */
-        const char *err =
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Length: 0\r\n\r\n";
-        write(client_fd, err, strlen(err));
+
+    /* ── 1) 요청 라인 파싱 ───────────────────────────────────────── */
+    char method[8], path[256];
+    if (parse_request_line(buf, method, path) != 0) {
+        write(client_fd,
+              "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n", 50);
         close(client_fd);
         return NULL;
     }
 
-    /* ------------------------------------------------------------
-     * ② 본문 추출
-     * ---------------------------------------------------------- */
-    char *body = strstr(buf, "\r\n\r\n");
-    if (!body) {
-        const char *err =
-            "HTTP/1.1 400 Bad Request\r\n"
-            "Content-Length: 0\r\n\r\n";
-        write(client_fd, err, strlen(err));
-        close(client_fd);
-        return NULL;
+    char resp[8192];        /* 공통 응답 버퍼 */
+    int  rlen = -1;
+
+    /* ── 2) GET /users/me ───────────────────────────────────────── */
+    if (strcmp(method, "GET") == 0 && strcmp(path, "/users/me") == 0) {
+        rlen = user_adapter_get_me(buf, resp, sizeof resp);   /* 쿠키 필요 */
     }
-    body += 4;                                    /* 헤더 구분자 스킵 */
 
-    /* ------------------------------------------------------------
-     * ③ 어댑터 호출 → 응답 작성
-     * ---------------------------------------------------------- */
-    char resp_buf[8192];
-    int resp_len = -1;
+    /* ── 3) POST 엔드포인트 ──────────────────────────────────────── */
+    else if (strcmp(method, "POST") == 0) {
+        const char *body = strstr(buf, "\r\n\r\n");
+        if (!body) {
+            write(client_fd,
+                  "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n", 50);
+            close(client_fd);
+            return NULL;
+        }
+        body += 4;
 
-    if (ep == ENDPOINT_REGISTER)
-        resp_len = user_adapter_register(body, resp_buf, sizeof(resp_buf));
-    else /* ENDPOINT_LOGIN */
-        resp_len = user_adapter_login(body, resp_buf, sizeof(resp_buf));
+        if (strcmp(path, "/users") == 0)
+            rlen = user_adapter_register(body, resp, sizeof resp);
+        else if (strcmp(path, "/users/login") == 0)
+            rlen = user_adapter_login(body, resp, sizeof resp);
+    }
 
-    if (resp_len > 0)
-        write(client_fd, resp_buf, resp_len);
-    else {  /* 내부 오류 */
-        const char *err =
-            "HTTP/1.1 500 Internal Server Error\r\n"
-            "Content-Length: 0\r\n\r\n";
-        write(client_fd, err, strlen(err));
+    /* ── 4) 응답 전송 또는 404/500 ───────────────────────────────── */
+    if (rlen > 0) {
+        write(client_fd, resp, rlen);
+    } else if (rlen == -1) {                 /* 라우트 불일치 */
+        write(client_fd,
+              "HTTP/1.1 404 Not Found\r\nContent-Length:0\r\n\r\n", 48);
+    } else {                                 /* -2 등 내부 오류 */
+        write(client_fd,
+              "HTTP/1.1 500 Internal Server Error\r\nContent-Length:0\r\n\r\n",
+              57);
     }
 
     close(client_fd);
