@@ -174,6 +174,9 @@ int user_adapter_get_me(const char *req,
                                  "{\"error\":\"Unauthorized\"}");
 
     char body[512];
+    snprintf(body, sizeof body,
+             "{\"userid\":\"%s\",\"nickname\":\"%s\"}",
+             ctl.info.userid, ctl.info.nickname);
 
     return build_simple_resp(resp_buf, buf_sz, HTTP_OK, body);
 }
