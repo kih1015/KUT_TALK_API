@@ -78,7 +78,7 @@ void *handle_client_thread(void *arg) {
         else if (strcmp(path, "/users/login") == 0)
             rlen = user_adapter_login(body, resp, sizeof resp);
         else if (strcmp(path, "/users/logout") == 0)
-            rlen = user_adapter_logout(body, resp, sizeof resp);
+            rlen = user_adapter_logout(buf, resp, sizeof resp);
     }
 
     /* ── 4) 응답 전송 또는 404/500 ───────────────────────────────── */

@@ -174,9 +174,6 @@ int user_adapter_get_me(const char *req,
                                  "{\"error\":\"Unauthorized\"}");
 
     char body[512];
-    int bl = snprintf(body, sizeof body,
-                      "{\"userid\":\"%s\",\"nickname\":\"%s\"}",
-                      ctl.info.userid, ctl.info.nickname);
 
     return build_simple_resp(resp_buf, buf_sz, HTTP_OK, body);
 }
@@ -184,9 +181,7 @@ int user_adapter_get_me(const char *req,
 int user_adapter_logout(const char *req, char *resp_buf, size_t buf_sz) {
     const char *sid = find_cookie(req, "KTA_SESSION_ID");
     if (!sid) /* 쿠키 없음 */
-        return build_simple_resp(resp_buf, buf_sz,
-                                 HTTP_UNAUTHORIZED,
-                                 "{\"error\":\"No session\"}");
+        return build_simple_resp(resp_buf, buf_sz, HTTP_UNAUTHORIZED, "{\"error\":\"No session\"}");
 
     char sid_val[65] = {0};
     strncpy(sid_val, sid, 64);
@@ -205,6 +200,5 @@ int user_adapter_logout(const char *req, char *resp_buf, size_t buf_sz) {
     }
 
     /* 실패 */
-    return build_simple_resp(resp_buf, buf_sz, st,
-                             "{\"error\":\"Unauthorized\"}");
+    return build_simple_resp(resp_buf, buf_sz, st, "{\"error\":\"Unauthorized\"}");
 }
