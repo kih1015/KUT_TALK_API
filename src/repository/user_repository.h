@@ -1,5 +1,4 @@
-#ifndef USER_REPOSITORY_H
-#define USER_REPOSITORY_H
+#pragma once
 
 #include <mysql/mysql.h>
 
@@ -20,5 +19,3 @@ int user_repository_add(
     const char *nickname,
     const char *password
 );
-
-#endif // USER_REPOSITORY_H

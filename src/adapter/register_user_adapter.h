@@ -1,5 +1,4 @@
-#ifndef REGISTER_USER_ADAPTER_H
-#define REGISTER_USER_ADAPTER_H
+#pragma once
 
 #include <stddef.h>
 
@@ -12,5 +11,3 @@ int register_user_adapter(
     char       *resp_buf,
     size_t      buf_size
 );
-
-#endif // REGISTER_USER_ADAPTER_H

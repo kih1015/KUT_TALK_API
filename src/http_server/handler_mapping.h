@@ -1,6 +1,3 @@
-#ifndef HANDLER_MAPPING_H
-#define HANDLER_MAPPING_H
+#pragma once
 
 void *handle_client_thread(void *arg);
-
-#endif //HANDLER_MAPPING_H
