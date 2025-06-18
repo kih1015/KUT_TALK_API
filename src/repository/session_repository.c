@@ -1,4 +1,7 @@
 #include "repository/session_repository.h"
+
+#include <stdio.h>
+
 #include "repository/user_repository.h"     /* db_conn 전역 활용 */
 
 #include <mysql/mysql.h>
@@ -26,20 +29,28 @@ int session_repository_add(const char *sid,
     }
 
     MYSQL_BIND b[3] = {0};
+
+    /* id */
     b[0].buffer_type   = MYSQL_TYPE_STRING;
     b[0].buffer        = (char *)sid;
     b[0].buffer_length = 64;
 
+    /* userid */
     b[1].buffer_type   = MYSQL_TYPE_STRING;
     b[1].buffer        = (char *)uid;
     b[1].buffer_length = strlen(uid);
 
+    /* expires_at (FROM_UNIXTIME(?)) */
     b[2].buffer_type   = MYSQL_TYPE_LONGLONG;
     b[2].buffer        = &exp;
-
-    mysql_stmt_bind_param(st, b);
+    b[2].buffer_length = sizeof(exp);
+    b[2].is_unsigned   = 0;               /* time_t 는 signed */
 
     int rc = mysql_stmt_execute(st) ? mysql_errno(db_conn) : 0;
+    if (rc != 0) {
+        fprintf(stderr, "[sessions] MySQL error %d: %s\n",
+                rc, mysql_error(db_conn));          /* ★추가 */
+    }
     mysql_stmt_close(st);
     return rc;
 }
