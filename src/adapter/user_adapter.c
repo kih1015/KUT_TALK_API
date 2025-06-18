@@ -1,13 +1,13 @@
 // adapter/register_user_adapter.c
 
-#include "adapter/register_user_adapter.h"
-#include "controller/register_user_controller.h"
+#include "adapter/user_adapter.h"
+#include "controller/user_controller.h"
 
 #include <cjson/cJSON.h>
 #include <stdio.h>
 #include <string.h>
 
-int register_user_adapter(
+int user_adapter_register(
     const char *body,
     char       *resp_buf,
     size_t      buf_size
@@ -31,7 +31,7 @@ int register_user_adapter(
             resp_body = "{\"error\":\"Missing or invalid fields\"}";
         } else {
             // 2) 컨트롤러 호출: HTTP 상태 코드를 그대로 리턴받음
-            int svc = register_user_controller(
+            int svc = user_controller_register(
                 juid->valuestring,
                 jnick->valuestring,
                 jpwd->valuestring

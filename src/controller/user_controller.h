@@ -1,6 +1,6 @@
 #pragma once
 
-int register_user_controller(
+int user_controller_register(
     const char *userid,
     const char *nickname,
     const char *password

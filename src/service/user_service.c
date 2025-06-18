@@ -1,7 +1,7 @@
-#include "service/register_user_service.h"
+#include "service/user_service.h"
 #include "repository/user_repository.h"
 
-int register_user_service(
+int user_service_register(
     const char *userid,
     const char *nickname,
     const char *password

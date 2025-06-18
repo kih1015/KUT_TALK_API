@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 
 #include "handler_mapping.h"
-#include "adapter/register_user_adapter.h"
+#include "adapter/user_adapter.h"
 
 #define BACKLOG     10
 #define MAX_EVENTS  64

@@ -1,4 +1,4 @@
-#include "adapter/register_user_adapter.h"
+#include "adapter/user_adapter.h"
 #include "handler_mapping.h"
 #include <fcntl.h>
 #include <stdio.h>
@@ -30,7 +30,7 @@ void *handle_client_thread(void *arg) {
 
             // 1) 스택 버퍼로 충분히 크게 선언 (예: 8KB)
             char resp_buf[8192];
-            int len = register_user_adapter(body, resp_buf, sizeof(resp_buf));
+            int len = user_adapter_register(body, resp_buf, sizeof(resp_buf));
             if (len > 0) {
                 // 2) 한 번에 전송
                 write(client_fd, resp_buf, len);

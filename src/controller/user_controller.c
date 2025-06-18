@@ -1,12 +1,12 @@
-#include "register_user_controller.h"
-#include "service/register_user_service.h"
+#include "user_controller.h"
+#include "service/user_service.h"
 
-int register_user_controller(
+int user_controller_register(
     const char *userid,
     const char *nickname,
     const char *password
 ) {
-    int result = register_user_service(
+    int result = user_service_register(
         userid,
         nickname,
         password
