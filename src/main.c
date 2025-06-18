@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sodium.h>
 
 #include "http_server/http_server.h"
 #include "repository/user_repository.h"
@@ -6,6 +7,10 @@
 int main(void) {
     const char *db_user = getenv("DB_USER");
     const char *db_pass = getenv("DB_PASS");
+
+    if (sodium_init() < 0) {
+        return 1;
+    }
 
     if (user_repository_init(
             "127.0.0.1", db_user, db_pass,

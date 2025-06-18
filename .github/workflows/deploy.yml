@@ -24,7 +24,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential cmake \
-            libcjson-dev libmysqlclient-dev pkg-config
+            libcjson-dev libmysqlclient-dev pkg-config libsodium-dev
 
       - name: Configure
         run: |
@@ -37,7 +37,6 @@ jobs:
           cd build
           cmake --build . --config Release
 
-      # 바이너리 복사 (build/kut_talk_api → remote:/home/ubuntu/kuttalk_server/build/kut_talk_api)
       - name: Deploy binary via SCP
         uses: appleboy/scp-action@master
         with:
