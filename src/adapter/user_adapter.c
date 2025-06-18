@@ -140,8 +140,7 @@ int user_adapter_login(const char *body,
     return (n < 0 || (size_t) n >= buf_sz) ? -1 : n; /* -1 = 버퍼 부족 */
 }
 
-static const char *find_cookie(const char *req, const char *name)
-{
+static const char *find_cookie(const char *req, const char *name) {
     const char *p = req;
     size_t nlen = strlen(name);
     while ((p = strcasestr(p, "Cookie:")) != NULL) {
@@ -160,8 +159,7 @@ static const char *find_cookie(const char *req, const char *name)
 }
 
 int user_adapter_get_me(const char *req,
-                        char *resp_buf, size_t buf_sz)
-{
+                        char *resp_buf, size_t buf_sz) {
     const char *sid = find_cookie(req, "KTA_SESSION_ID");
     if (!sid) /* 쿠키 없으면 401 */
         return build_simple_resp(resp_buf, buf_sz, HTTP_UNAUTHORIZED,
@@ -181,4 +179,32 @@ int user_adapter_get_me(const char *req,
                       ctl.info.userid, ctl.info.nickname);
 
     return build_simple_resp(resp_buf, buf_sz, HTTP_OK, body);
+}
+
+int user_adapter_logout(const char *req, char *resp_buf, size_t buf_sz) {
+    const char *sid = find_cookie(req, "KTA_SESSION_ID");
+    if (!sid) /* 쿠키 없음 */
+        return build_simple_resp(resp_buf, buf_sz,
+                                 HTTP_UNAUTHORIZED,
+                                 "{\"error\":\"No session\"}");
+
+    char sid_val[65] = {0};
+    strncpy(sid_val, sid, 64);
+
+    enum http_status st = user_controller_logout(sid_val);
+
+    /* 성공 → 쿠키 삭제용 헤더 */
+    if (st == HTTP_NO_CONTENT) {
+        int n = snprintf(resp_buf, buf_sz,
+                         "HTTP/1.1 204 No Content\r\n"
+                         "Set-Cookie: KTA_SESSION_ID=deleted; "
+                         "Domain=api.kuttalk.kro.kr; Path=/; Max-Age=0; "
+                         "HttpOnly; Secure; SameSite=Lax\r\n"
+                         "Content-Length: 0\r\n\r\n");
+        return (n < 0 || (size_t) n >= buf_sz) ? -1 : n;
+    }
+
+    /* 실패 */
+    return build_simple_resp(resp_buf, buf_sz, st,
+                             "{\"error\":\"Unauthorized\"}");
 }

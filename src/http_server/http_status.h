@@ -4,6 +4,7 @@ enum http_status {
     /* 2xx Success */
     HTTP_OK                   = 200,
     HTTP_CREATED              = 201,
+    HTTP_NO_CONTENT           = 204,
 
     /* 4xx Client Error */
     HTTP_BAD_REQUEST          = 400,
@@ -24,6 +25,7 @@ http_reason_phrase(enum http_status s)
     switch (s) {
         case HTTP_OK:                   return "OK";
         case HTTP_CREATED:              return "Created";
+        case HTTP_NO_CONTENT:           return "No Content";
 
         case HTTP_BAD_REQUEST:          return "Bad Request";
         case HTTP_UNAUTHORIZED:         return "Unauthorized";

@@ -74,3 +74,11 @@ int user_service_get_me(const char *sid, struct user_info *out)
         return -2;                            /* DB 오류 or no user */
     return 0;
 }
+
+int user_service_logout(const char *sid)
+{
+    int rc = session_repository_delete(sid);
+    if (rc == 0) return 0;
+    if (rc == 1) return -1;
+    return -2;
+}

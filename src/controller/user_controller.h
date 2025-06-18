@@ -22,3 +22,5 @@ struct me_ctl_result {
 };
 
 struct me_ctl_result user_controller_get_me(const char *session_id);
+
+enum http_status user_controller_logout(const char *session_id);

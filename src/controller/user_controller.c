@@ -40,3 +40,11 @@ struct me_ctl_result user_controller_get_me(const char *sid)
     else               r.status = HTTP_INTERNAL_ERROR;
     return r;
 }
+
+enum http_status user_controller_logout(const char *sid)
+{
+    int rc = user_service_logout(sid);
+    if (rc == 0)      return HTTP_NO_CONTENT;     /* 204 */
+    if (rc == -1)     return HTTP_UNAUTHORIZED;   /* 세션 없음 */
+    return HTTP_INTERNAL_ERROR;
+}

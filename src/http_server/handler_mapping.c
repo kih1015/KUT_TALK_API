@@ -13,7 +13,8 @@
 const struct route ROUTES[] = {
     {"POST", "/users/login", 0, user_adapter_login},
     {"POST", "/users", 0, user_adapter_register},
-    { "GET", "/users/me", 0, user_adapter_get_me }, /* prefix 매칭 */
+    {"GET", "/users/me", 0, user_adapter_get_me},
+    {"POST", "/users/logout", 0, user_adapter_logout},
 };
 const size_t ROUTE_COUNT = sizeof ROUTES / sizeof *ROUTES;
 
@@ -32,14 +33,16 @@ static int parse_request_line(const char *buf,
     return 0;
 }
 
-void *handle_client_thread(void *arg)
-{
-    int client_fd = *(int *)arg;
+void *handle_client_thread(void *arg) {
+    int client_fd = *(int *) arg;
     free(arg);
 
     char buf[BUF_SIZE];
     int len = read(client_fd, buf, BUF_SIZE - 1);
-    if (len <= 0) { close(client_fd); return NULL; }
+    if (len <= 0) {
+        close(client_fd);
+        return NULL;
+    }
     buf[len] = '\0';
 
     /* ── 1) 요청 라인 파싱 ───────────────────────────────────────── */
@@ -51,12 +54,12 @@ void *handle_client_thread(void *arg)
         return NULL;
     }
 
-    char resp[8192];        /* 공통 응답 버퍼 */
-    int  rlen = -1;
+    char resp[8192]; /* 공통 응답 버퍼 */
+    int rlen = -1;
 
     /* ── 2) GET /users/me ───────────────────────────────────────── */
     if (strcmp(method, "GET") == 0 && strcmp(path, "/users/me") == 0) {
-        rlen = user_adapter_get_me(buf, resp, sizeof resp);   /* 쿠키 필요 */
+        rlen = user_adapter_get_me(buf, resp, sizeof resp); /* 쿠키 필요 */
     }
 
     /* ── 3) POST 엔드포인트 ──────────────────────────────────────── */
@@ -74,15 +77,19 @@ void *handle_client_thread(void *arg)
             rlen = user_adapter_register(body, resp, sizeof resp);
         else if (strcmp(path, "/users/login") == 0)
             rlen = user_adapter_login(body, resp, sizeof resp);
+        else if (strcmp(path, "/users/logout") == 0)
+            rlen = user_adapter_logout(body, resp, sizeof resp);
     }
 
     /* ── 4) 응답 전송 또는 404/500 ───────────────────────────────── */
     if (rlen > 0) {
         write(client_fd, resp, rlen);
-    } else if (rlen == -1) {                 /* 라우트 불일치 */
+    } else if (rlen == -1) {
+        /* 라우트 불일치 */
         write(client_fd,
               "HTTP/1.1 404 Not Found\r\nContent-Length:0\r\n\r\n", 48);
-    } else {                                 /* -2 등 내부 오류 */
+    } else {
+        /* -2 등 내부 오류 */
         write(client_fd,
               "HTTP/1.1 500 Internal Server Error\r\nContent-Length:0\r\n\r\n",
               57);

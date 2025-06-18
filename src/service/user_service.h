@@ -11,3 +11,5 @@ int user_service_register(
 int user_service_login(const char *uid, const char *pw, char sid[SESSION_ID_LEN + 1]);
 
 int user_service_get_me(const char *session_id, struct user_info *out);
+
+int user_service_logout(const char *session_id);
