@@ -93,18 +93,18 @@ int user_repository_nickname_exists(const char *nickname) {
 int user_repository_add(
     const char *userid,
     const char *nickname,
-    const char *password_plain   /* 평문 전달 */
-){
+    const char *password_plain /* 평문 전달 */
+) {
     if (!db_conn) return -1;
 
     /* 1) 평문 → Argon2id 해시 ---------------------------------------- */
     char hash[PWD_HASH_LEN];
     if (kta_password_hash(password_plain, hash) != 0)
-        return -99;                     /* 해시 실패: 적당한 오류 코드 */
+        return -99; /* 해시 실패: 적당한 오류 코드 */
 
     MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
     const char *sql =
-        "INSERT INTO users (userid, nickname, password) VALUES (?, ?, ?)";
+            "INSERT INTO users (userid, nickname, password) VALUES (?, ?, ?)";
     if (mysql_stmt_prepare(stmt, sql, strlen(sql))) {
         int err = mysql_errno(db_conn);
         mysql_stmt_close(stmt);
@@ -113,16 +113,16 @@ int user_repository_add(
 
     MYSQL_BIND bind[3] = {0};
 
-    bind[0].buffer_type   = MYSQL_TYPE_STRING;
-    bind[0].buffer        = (char *)userid;
+    bind[0].buffer_type = MYSQL_TYPE_STRING;
+    bind[0].buffer = (char *) userid;
     bind[0].buffer_length = strlen(userid);
 
-    bind[1].buffer_type   = MYSQL_TYPE_STRING;
-    bind[1].buffer        = (char *)nickname;
+    bind[1].buffer_type = MYSQL_TYPE_STRING;
+    bind[1].buffer = (char *) nickname;
     bind[1].buffer_length = strlen(nickname);
 
-    bind[2].buffer_type   = MYSQL_TYPE_STRING;
-    bind[2].buffer        = hash;                 /* 해시 문자열 저장 */
+    bind[2].buffer_type = MYSQL_TYPE_STRING;
+    bind[2].buffer = hash; /* 해시 문자열 저장 */
     bind[2].buffer_length = strlen(hash);
 
     mysql_stmt_bind_param(stmt, bind);
@@ -133,4 +133,51 @@ int user_repository_add(
     }
     mysql_stmt_close(stmt);
     return 0;
+}
+
+int user_repository_get_hash(const char *userid,
+                             char *out_hash,
+                             size_t buf_size) {
+    if (!db_conn) return -1; /* DB 미초기화 */
+
+    MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
+    const char *sql = "SELECT password FROM users WHERE userid = ?";
+
+    if (mysql_stmt_prepare(stmt, sql, strlen(sql))) {
+        mysql_stmt_close(stmt);
+        return -2; /* prepare 실패 */
+    }
+
+    /* 파라미터 바인드 */
+    MYSQL_BIND param = {0};
+    param.buffer_type = MYSQL_TYPE_STRING;
+    param.buffer = (char *) userid;
+    param.buffer_length = strlen(userid);
+    mysql_stmt_bind_param(stmt, &param);
+
+    if (mysql_stmt_execute(stmt)) {
+        /* 실행 */
+        mysql_stmt_close(stmt);
+        return -3; /* execute 오류 */
+    }
+
+    /* 결과 바인드 */
+    memset(out_hash, 0, buf_size); /* 안전: 널 종료 */
+    MYSQL_BIND result = {0};
+    result.buffer_type = MYSQL_TYPE_STRING;
+    result.buffer = out_hash;
+    result.buffer_length = buf_size - 1; /* 널 여유 */
+
+    mysql_stmt_bind_result(stmt, &result);
+
+    /* 결과 fetch */
+    int fetch_status = mysql_stmt_fetch(stmt);
+    mysql_stmt_close(stmt);
+
+    if (fetch_status == MYSQL_NO_DATA)
+        return 1; /* userid 없음 */
+    if (fetch_status) /* 기타 오류 */
+        return -4;
+
+    return 0; /* 성공 */
 }

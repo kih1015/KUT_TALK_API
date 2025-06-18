@@ -12,6 +12,6 @@ int kta_password_hash(const char *pw, char out[PWD_HASH_LEN]) {
                : -1;
 }
 
-int verify_password(const char *pw, const char stored[PWD_HASH_LEN]) {
+int kta_password_verify(const char *pw, const char stored[PWD_HASH_LEN]) {
     return crypto_pwhash_str_verify(stored, pw, strlen(pw)) == 0 ? 0 : -1;
 }

@@ -8,6 +8,7 @@ int user_repository_init(
     const char *host, const char *user,
     const char *pass, const char *db, unsigned int port
 );
+
 void user_repository_close(void);
 
 int user_repository_exists(const char *userid);
@@ -19,3 +20,9 @@ int user_repository_add(
     const char *nickname,
     const char *password
 );
+
+int user_repository_get_hash(
+    const char *userid,
+    char *out_hash,
+    size_t buf_size)
+;

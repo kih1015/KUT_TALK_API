@@ -36,7 +36,13 @@ file(GLOB SRC
         src/*.c
         src/*/*.c)
 
-add_executable(kut_talk_api ${SRC})
+add_executable(kut_talk_api ${SRC}
+        src/util/session_id.c
+        src/util/session_id.h
+        src/repository/session_repository.c
+        src/repository/session_repository.h
+        src/http_server/http_status.h
+        src/http_server/http_utils.h)
 
 target_include_directories(kut_talk_api PRIVATE
         src

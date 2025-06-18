@@ -5,4 +5,4 @@
 
 int kta_password_hash(const char *pw, char out[PWD_HASH_LEN]);
 
-int verify_password(const char *pw, const char stored[PWD_HASH_LEN]);
+int kta_password_verify(const char *pw, const char stored[PWD_HASH_LEN]);
