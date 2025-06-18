@@ -11,7 +11,7 @@ struct http_header {
 };
 
 struct http_request {
-    const char *raw; /* recv()로 읽은 버퍼 주소                   */
+    const char *raw;
 
     char method[MAX_METHOD_LEN];
     char path[MAX_PATH_LEN];
@@ -19,7 +19,7 @@ struct http_request {
     struct http_header headers[MAX_HEADERS];
     size_t header_cnt;
 
-    const char *body; /* 헤더 종료 뒤 +4 지점                       */
+    const char *body;
 };
 
 int parse_http_request(char *buf, size_t len, struct http_request *out);

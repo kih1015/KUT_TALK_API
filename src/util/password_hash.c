@@ -5,9 +5,11 @@
 int kta_password_hash(const char *pw, char out[PWD_HASH_LEN]) {
     return crypto_pwhash_str(
                out,
-               pw, strlen(pw),
+               pw,
+               strlen(pw),
                crypto_pwhash_OPSLIMIT_MODERATE,
-               crypto_pwhash_MEMLIMIT_MODERATE) == 0
+               crypto_pwhash_MEMLIMIT_MODERATE
+           ) == 0
                ? 0
                : -1;
 }

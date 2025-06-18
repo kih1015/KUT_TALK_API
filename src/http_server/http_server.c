@@ -27,15 +27,15 @@ void http_server_start(int port) {
     set_nonblocking(server_fd);
 
     struct sockaddr_in addr = {0};
-    addr.sin_family      = AF_INET;
+    addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port        = htons(port);
+    addr.sin_port = htons(port);
 
-    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
+    bind(server_fd, (struct sockaddr *) &addr, sizeof(addr));
     listen(server_fd, BACKLOG);
 
     int epfd = epoll_create1(0);
-    struct epoll_event ev = { .events = EPOLLIN, .data.fd = server_fd };
+    struct epoll_event ev = {.events = EPOLLIN, .data.fd = server_fd};
     epoll_ctl(epfd, EPOLL_CTL_ADD, server_fd, &ev);
 
     printf("Listening on port %d (POST /users only)\n", port);

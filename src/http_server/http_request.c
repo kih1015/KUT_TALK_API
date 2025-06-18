@@ -9,7 +9,9 @@ static const char *skip_ws(const char *p) {
 }
 
 /* 대소문자 무시 비교 */
-static int ieq(const char *a, const char *b) { return strcasecmp(a, b) == 0; }
+static int ieq(const char *a, const char *b) {
+    return strcasecmp(a, b) == 0;
+}
 
 int parse_http_request(char *buf, size_t len, struct http_request *out) {
     out->raw = buf;
