@@ -120,7 +120,7 @@ int user_adapter_login(const char *body,
         /* 세션 쿠키 헤더 문자열 완성 */
         snprintf(cookie_hdr, sizeof cookie_hdr,
                  "Set-Cookie: KTA_SESSION_ID=%s; "
-                 "Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict\r\n",
+                 "Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Lax\r\n",
                  ctl.session_id);
     }
 
