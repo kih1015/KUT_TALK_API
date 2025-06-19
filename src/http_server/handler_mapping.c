@@ -62,7 +62,5 @@ void *handle_client_thread(void *arg) {
 
     close(fd);
     db_thread_cleanup();
-    close(*(int*)arg);
-    free(arg);
     return NULL;
 }
