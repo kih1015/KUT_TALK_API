@@ -136,6 +136,7 @@ int chat_controller_my_rooms(const struct http_request *req,
         cJSON_AddNumberToObject(o, "last_sender", list[i].last_sender);
         cJSON_AddNumberToObject(o, "last_time", list[i].last_time);
         cJSON_AddNumberToObject(o, "unread", list[i].unread);
+        cJSON_AddNumberToObject(o, "member_cnt", list[i].member_cnt);
         cJSON_AddItemToArray(arr, o);
     }
     char *js = cJSON_PrintUnformatted(arr);

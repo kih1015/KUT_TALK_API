@@ -88,78 +88,79 @@ err:
 }
 
 int chat_room_list_lobby(uint32_t me,
-                         struct lobby_room *out, size_t max, size_t *cnt) {
-    MYSQL *db_conn = get_db();
+                         struct lobby_room *out, size_t max, size_t *cnt)
+{
+    MYSQL *db = get_db();
     const char *q =
-            "SELECT r.id,r.title,"
-            "       COALESCE(m.content,''),"
-            "       COALESCE(m.sender_id,0),"
-            "       COALESCE(UNIX_TIMESTAMP(m.created_at),0),"
-            "       COALESCE(u.unread_cnt,0)"
-            "FROM chat_room_member rm"
-            " JOIN chat_room r ON r.id=rm.room_id"
-            " LEFT JOIN ("
-            "    SELECT room_id, content, sender_id, created_at"
-            "    FROM chat_message"
-            "    WHERE (room_id, id) IN ("
-            "        SELECT room_id, MAX(id) FROM chat_message GROUP BY room_id"
-            "    )"
-            ") m ON m.room_id=r.id"
-            " LEFT JOIN ("
-            "    SELECT c.room_id, COUNT(*) unread_cnt"
-            "    FROM chat_message_unread u"
-            "    JOIN chat_message c ON c.id=u.message_id"
-            "    WHERE u.user_id=?"
-            "    GROUP BY c.room_id"
-            ") u ON u.room_id=r.id"
-            " WHERE rm.user_id=?"
-            " ORDER BY m.created_at DESC";
+        "SELECT r.id, r.title, "
+        "       COALESCE(m.content,''), "
+        "       COALESCE(m.sender_id,0), "
+        "       COALESCE(UNIX_TIMESTAMP(m.created_at),0), "
+        "       COALESCE(u.unread_cnt,0), "
+        "       (SELECT COUNT(*) FROM chat_room_member WHERE room_id = r.id) "
+        "         AS member_cnt "
+        "FROM   chat_room_member rm "
+        "JOIN   chat_room r ON r.id = rm.room_id "
+        "LEFT JOIN ("
+        "   SELECT room_id, content, sender_id, created_at "
+        "   FROM   chat_message "
+        "   WHERE  (room_id, id) IN ("
+        "       SELECT room_id, MAX(id) FROM chat_message GROUP BY room_id"
+        "   )"
+        ") m ON m.room_id = r.id "
+        "LEFT JOIN ("
+        "   SELECT c.room_id, COUNT(*) unread_cnt "
+        "   FROM   chat_message_unread u "
+        "   JOIN   chat_message c ON c.id = u.message_id "
+        "   WHERE  u.user_id = ? "
+        "   GROUP  BY c.room_id"
+        ") u ON u.room_id = r.id "
+        "WHERE  rm.user_id = ? "
+        "ORDER  BY m.created_at DESC";
 
-    MYSQL_STMT *st = mysql_stmt_init(db_conn);
+    MYSQL_STMT *st = mysql_stmt_init(db);
     if (mysql_stmt_prepare(st, q, strlen(q))) goto err;
 
+    /* IN 파라미터 두 개 모두 me */
     MYSQL_BIND inb[2] = {0};
     inb[0].buffer_type = inb[1].buffer_type = MYSQL_TYPE_LONG;
     inb[0].buffer = inb[1].buffer = &me;
+
     if (mysql_stmt_bind_param(st, inb) || mysql_stmt_execute(st)) goto err;
 
-    MYSQL_BIND outb[6] = {0};
-    uint32_t id, sender, ts, unread;
+    /* ---------- 결과 바인드 ---------- */
+    uint32_t id, sender, ts, unread, members;
     char title[81], content[256];
     unsigned long tl, cl;
 
-    outb[0].buffer_type = MYSQL_TYPE_LONG;
-    outb[0].buffer = &id;
-    outb[1].buffer_type = MYSQL_TYPE_STRING;
-    outb[1].buffer = title;
-    outb[1].buffer_length = 81;
-    outb[1].length = &tl;
-    outb[2].buffer_type = MYSQL_TYPE_STRING;
-    outb[2].buffer = content;
-    outb[2].buffer_length = 256;
-    outb[2].length = &cl;
-    outb[3].buffer_type = MYSQL_TYPE_LONG;
-    outb[3].buffer = &sender;
-    outb[4].buffer_type = MYSQL_TYPE_LONG;
-    outb[4].buffer = &ts;
-    outb[5].buffer_type = MYSQL_TYPE_LONG;
-    outb[5].buffer = &unread;
-    if (mysql_stmt_bind_result(st, outb)) goto err;
+    MYSQL_BIND rb[7] = {0};
+    rb[0].buffer_type = MYSQL_TYPE_LONG;   rb[0].buffer = &id;
+    rb[1].buffer_type = MYSQL_TYPE_STRING; rb[1].buffer = title;
+    rb[1].buffer_length = 81;              rb[1].length = &tl;
+    rb[2].buffer_type = MYSQL_TYPE_STRING; rb[2].buffer = content;
+    rb[2].buffer_length = 256;             rb[2].length = &cl;
+    rb[3].buffer_type = MYSQL_TYPE_LONG;   rb[3].buffer = &sender;
+    rb[4].buffer_type = MYSQL_TYPE_LONG;   rb[4].buffer = &ts;
+    rb[5].buffer_type = MYSQL_TYPE_LONG;   rb[5].buffer = &unread;
+    rb[6].buffer_type = MYSQL_TYPE_LONG;   rb[6].buffer = &members;
+
+    if (mysql_stmt_bind_result(st, rb)) goto err;
 
     *cnt = 0;
     while (mysql_stmt_fetch(st) == 0 && *cnt < max) {
         struct lobby_room *d = &out[(*cnt)++];
-        d->id = id;
+        d->id          = id;
         d->last_sender = sender;
-        d->last_time = ts;
-        d->unread = unread;
-        strncpy(d->title, title, 80);
-        d->title[80] = '\0';
-        strncpy(d->last_content, content, 255);
-        d->last_content[255] = '\0';
+        d->last_time   = ts;
+        d->unread      = unread;
+        d->member_cnt  = members;
+
+        strncpy(d->title,       title,   80); d->title[80]       = '\0';
+        strncpy(d->last_content,content,255); d->last_content[255]= '\0';
     }
     mysql_stmt_close(st);
     return 0;
+
 err:
     if (st) mysql_stmt_close(st);
     return -1;
