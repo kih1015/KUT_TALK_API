@@ -2,13 +2,6 @@
 
 #include <mysql/mysql.h>
 
-extern MYSQL *db_conn;
-
-int user_repository_init(
-    const char *host, const char *user,
-    const char *pass, const char *db, unsigned int port
-);
-
 void user_repository_close(void);
 
 int user_repository_exists(const char *userid);

@@ -9,6 +9,8 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 
+#include "repository/db.h"
+
 #define BUF_SIZE    4096
 const struct route ROUTES[] = {
     {"POST", "/users/login", user_controller_login},
@@ -19,6 +21,11 @@ const struct route ROUTES[] = {
 const size_t ROUTE_CNT = sizeof ROUTES / sizeof *ROUTES;
 
 void *handle_client_thread(void *arg) {
+    if (db_thread_init() != 0) {   /* ← 꼭 호출 */
+        /* 커넥션 실패 → 500 응답 후 종료 */
+        close(*(int*)arg); free(arg); return NULL;
+    }
+
     int fd = *(int *) arg;
     free(arg);
 
@@ -54,5 +61,8 @@ void *handle_client_thread(void *arg) {
         write(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-Length:0\r\n\r\n", 57);
 
     close(fd);
+    db_thread_cleanup();
+    close(*(int*)arg);
+    free(arg);
     return NULL;
 }

@@ -2,10 +2,10 @@
 
 #include <stdio.h>
 
-#include "repository/user_repository.h"     /* db_conn 전역 활용 */
-
 #include <mysql/mysql.h>
 #include <string.h>
+
+#include "db.h"
 
 #define UID_MAX_LEN 255
 
@@ -13,6 +13,7 @@
 /* 세션 추가                                                         */
 /*------------------------------------------------------------------*/
 int session_repository_add(const char *sid, const char *uid, time_t exp) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
 
     MYSQL_STMT *st = mysql_stmt_init(db_conn);
@@ -77,6 +78,7 @@ int session_repository_add(const char *sid, const char *uid, time_t exp) {
 /*------------------------------------------------------------------*/
 int session_repository_find(const char *sid, char *out_uid, time_t *out_exp) /* NULL 허용 */
 {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
 
     MYSQL_STMT *st = mysql_stmt_init(db_conn);
@@ -134,6 +136,7 @@ int session_repository_find(const char *sid, char *out_uid, time_t *out_exp) /* 
 /* 세션 삭제                                                         */
 /*------------------------------------------------------------------*/
 int session_repository_delete(const char *sid) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
 
     MYSQL_STMT *st = mysql_stmt_init(db_conn);

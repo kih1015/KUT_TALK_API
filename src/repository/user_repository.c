@@ -4,27 +4,10 @@
 
 #include "util/password_hash.h"
 
-MYSQL *db_conn = NULL;
-
-int user_repository_init(
-    const char *host,
-    const char *user,
-    const char *pass,
-    const char *db,
-    unsigned int port
-) {
-    db_conn = mysql_init(NULL);
-    if (!db_conn) return -1;
-    if (!mysql_real_connect(db_conn, host, user, pass, db, port,NULL, 0)) {
-        fprintf(stderr, "MySQL connect error: %s\n", mysql_error(db_conn));
-        mysql_close(db_conn);
-        db_conn = NULL;
-        return -2;
-    }
-    return 0;
-}
+#include "db.h"
 
 void user_repository_close(void) {
+    MYSQL *db_conn = get_db();
     if (db_conn) {
         mysql_close(db_conn);
         db_conn = NULL;
@@ -32,6 +15,7 @@ void user_repository_close(void) {
 }
 
 int user_repository_exists(const char *userid) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
     MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
     const char *sql =
@@ -62,6 +46,7 @@ int user_repository_exists(const char *userid) {
 }
 
 int user_repository_nickname_exists(const char *nickname) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
     MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
     const char *sql = "SELECT COUNT(*) FROM users WHERE nickname = ?";
@@ -95,6 +80,7 @@ int user_repository_add(
     const char *nickname,
     const char *password_plain /* 평문 전달 */
 ) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
 
     /* 1) 평문 → Argon2id 해시 ---------------------------------------- */
@@ -136,6 +122,7 @@ int user_repository_add(
 }
 
 int user_repository_get_hash(const char *userid, char *out_hash, size_t buf_size) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1; /* DB 미초기화 */
 
     MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
@@ -181,6 +168,7 @@ int user_repository_get_hash(const char *userid, char *out_hash, size_t buf_size
 }
 
 int user_repository_get_info(const char *userid, struct user_info *out) {
+    MYSQL *db_conn = get_db();
     if (!db_conn) return -1;
 
     MYSQL_STMT *st = mysql_stmt_init(db_conn);

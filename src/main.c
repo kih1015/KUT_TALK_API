@@ -2,10 +2,10 @@
 #include <sodium.h>
 
 #include "http_server/http_server.h"
-#include "repository/user_repository.h"
+#include "repository/db.h"
 
 int main(void) {
-    setvbuf(stderr,NULL,_IOLBF,0);
+    setvbuf(stderr,NULL,_IOLBF, 0);
     const char *db_user = getenv("DB_USER");
     const char *db_pass = getenv("DB_PASS");
 
@@ -13,7 +13,7 @@ int main(void) {
         return 1;
     }
 
-    if (user_repository_init(
+    if (db_global_init(
             "127.0.0.1", db_user, db_pass,
             "kuttalk_db", 3306) != 0) {
         fprintf(stderr, "DB init failed\n");
@@ -22,6 +22,6 @@ int main(void) {
 
     http_server_start(8080);
 
-    user_repository_close();
+    db_global_end();
     return 0;
 }
