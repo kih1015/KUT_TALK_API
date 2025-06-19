@@ -26,3 +26,11 @@ struct user_info {
 };
 
 int user_repository_get_info(const char *userid, struct user_info *out);
+
+#define USERID_MAX   255
+#define NICK_MAX     255
+
+int user_repository_get_info_by_id(uint32_t id,
+                                   struct user_info *out);
+
+int user_repository_get_id_by_userid(const char *uid, uint32_t *out_id);

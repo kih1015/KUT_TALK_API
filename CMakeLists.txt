@@ -45,10 +45,14 @@ add_executable(kut_talk_api ${SRC}
         src/http_server/http_utils.h
         src/http_server/http_request.h
         src/http_server/http_request.c
-        src/repository/chat_room_repository.c
-        src/repository/chat_room_repository.h
+        src/repository/chat_repository.c
+        src/repository/chat_repository.h
         src/repository/db.h
-        src/repository/db.c)
+        src/repository/db.c
+        src/service/chat_service.c
+        src/service/chat_service.h
+        src/controller/chat_controller.c
+        src/controller/chat_controller.h)
 
 target_include_directories(kut_talk_api PRIVATE
         src

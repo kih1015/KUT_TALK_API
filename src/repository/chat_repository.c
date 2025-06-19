@@ -1,63 +1,89 @@
 #include <mysql.h>
 
-#include "chat_room_repository.h"
+#include "chat_repository.h"
+
+#include <stdio.h>
 #include <string.h>
 
 #include "db.h"
 
-int chat_room_create(enum room_type type,
-                     const char *title,
-                     uint32_t creator_id,
-                     const uint32_t *extra_members,
-                     size_t mem_cnt,
-                     uint32_t *out_room_id) {
-    MYSQL *db_conn = get_db();
-    MYSQL_STMT *stmt = mysql_stmt_init(db_conn);
-    const char *q1 = "INSERT INTO chat_room(room_type,title,creator_id)"
-            "VALUES(?,?,?)";
-    if (mysql_stmt_prepare(stmt, q1, strlen(q1)))
+int chat_room_create(
+    enum room_type type,
+    const char *title,
+    uint32_t creator_id,
+    const uint32_t *extra_members,
+    size_t mem_cnt,
+    uint32_t *out_room_id
+) {
+    MYSQL *db = get_db();
+    MYSQL_STMT *st = mysql_stmt_init(db);
+
+    /* 1) chat_room INSERT (열 명시) */
+    const char *q1 =
+      "INSERT INTO chat_room (title, room_type, creator_id) VALUES (?,?,?)";
+
+    if (mysql_stmt_prepare(st, q1, strlen(q1))) {
+        fprintf(stderr, "prepare‑1: %s\n", mysql_stmt_error(st));
+        fflush(stderr);
         goto err;
-
-    int rt = (type == ROOM_PUBLIC) ? 1 : 0;
-    MYSQL_BIND b1[3] = {0};
-
-    b1[0].buffer_type = MYSQL_TYPE_LONG;
-    b1[0].buffer = &rt;
-    b1[1].buffer_type = MYSQL_TYPE_STRING;
-    b1[1].buffer = (void *) title;
-    unsigned long tlen = strlen(title);
-    b1[1].length = &tlen;
-    b1[2].buffer_type = MYSQL_TYPE_LONG;
-    b1[2].buffer = &creator_id;
-
-    if (mysql_stmt_bind_param(stmt, b1) || mysql_stmt_execute(stmt))
-        goto err;
-    *out_room_id = (uint32_t) mysql_insert_id(db_conn);
-    mysql_stmt_close(stmt);
-
-    /* 1‑A‑2) 멤버 등록 (자기 자신 + extra) */
-    const char *q2 = "INSERT INTO chat_room_member(room_id,user_id) VALUES (?,?)";
-    stmt = mysql_stmt_init(db_conn);
-    if (mysql_stmt_prepare(stmt, q2, strlen(q2))) goto err;
-
-    MYSQL_BIND b2[2] = {0};
-    b2[0].buffer_type = MYSQL_TYPE_LONG;
-    b2[0].buffer = out_room_id;
-    b2[1].buffer_type = MYSQL_TYPE_LONG;
-
-    /* 자기 자신 */
-    b2[1].buffer = &creator_id;
-    if (mysql_stmt_bind_param(stmt, b2) || mysql_stmt_execute(stmt)) goto err;
-
-    /* 나머지 */
-    for (size_t i = 0; i < mem_cnt; ++i) {
-        b2[1].buffer = (void *) &extra_members[i];
-        if (mysql_stmt_bind_param(stmt, b2) || mysql_stmt_execute(stmt)) goto err;
     }
-    mysql_stmt_close(stmt);
+
+    /* 바인딩 */
+    const char *rt = (type == ROOM_PUBLIC) ? "PUBLIC" : "PRIVATE";
+    unsigned long t_len = strlen(title), rt_len = strlen(rt);
+
+    MYSQL_BIND b[3] = {0};
+    b[0].buffer_type = MYSQL_TYPE_STRING;
+    b[0].buffer = (void*)title;   b[0].length = &t_len;
+
+    b[1].buffer_type = MYSQL_TYPE_STRING;
+    b[1].buffer = (void*)rt;      b[1].length = &rt_len;
+
+    b[2].buffer_type = MYSQL_TYPE_LONG;
+    b[2].buffer = &creator_id;
+
+    if (mysql_stmt_bind_param(st,b) || mysql_stmt_execute(st)) {
+        fprintf(stderr, "execute‑1: %s\n", mysql_stmt_error(st));
+        fflush(stderr);
+        goto err;
+    }
+
+    uint32_t rid = (uint32_t)mysql_insert_id(db);
+    *out_room_id = rid;
+    mysql_stmt_close(st);
+
+    /* 2) chat_room_member INSERT */
+    const char *q2 =
+      "INSERT INTO chat_room_member (room_id,user_id) VALUES (?,?)";
+
+    st = mysql_stmt_init(db);
+    if (mysql_stmt_prepare(st,q2,strlen(q2))) {
+        fprintf(stderr,"prepare‑2: %s\n", mysql_stmt_error(st));
+        goto err;
+    }
+
+    MYSQL_BIND mb[2] = {0};
+    mb[0].buffer_type = MYSQL_TYPE_LONG; mb[0].buffer = &rid;
+    uint32_t uid; mb[1].buffer_type = MYSQL_TYPE_LONG; mb[1].buffer = &uid;
+
+    /* 개설자 */
+    uid = creator_id;
+    if (mysql_stmt_bind_param(st,mb) || mysql_stmt_execute(st)) {
+        fprintf(stderr,"execute‑2a: %s\n", mysql_stmt_error(st)); goto err;
+    }
+
+    /* 추가 멤버 */
+    for (size_t i=0;i<mem_cnt;++i) {
+        uid = extra_members[i];
+        if (mysql_stmt_bind_param(st,mb) || mysql_stmt_execute(st)) {
+            fprintf(stderr,"execute‑2b: %s\n", mysql_stmt_error(st)); goto err;
+        }
+    }
+    mysql_stmt_close(st);
     return 0;
+
 err:
-    if (stmt) mysql_stmt_close(stmt);
+    if (st) mysql_stmt_close(st);
     return -1;
 }
 
@@ -139,40 +165,42 @@ err:
     return -1;
 }
 
-int chat_room_list_public(size_t page,
-                          struct public_room *out, size_t max, size_t *cnt) {
-    MYSQL *db_conn = get_db();
-    const char *q =
-            "SELECT r.id,r.title,"
-            " (SELECT COUNT(*) FROM chat_room_member WHERE room_id=r.id)"
-            " AS member_cnt"
-            " FROM chat_room r"
-            " WHERE r.room_type='PUBLIC'"
-            " ORDER BY r.created_at DESC"
-            " LIMIT 50 OFFSET ?";
+int chat_room_list_public(struct public_room *out, size_t max, size_t *cnt)
+{
+    MYSQL *db = get_db();
+    if (!db) return -1;
 
-    MYSQL_STMT *st = mysql_stmt_init(db_conn);
+    /* ▼ LIMIT / OFFSET 없이 모든 PUBLIC 방 조회 */
+    const char *q =
+        "SELECT r.id, r.title, "
+        "       (SELECT COUNT(*) FROM chat_room_member WHERE room_id = r.id)"
+        "       AS member_cnt "
+        "FROM   chat_room r "
+        "WHERE  r.room_type = 'PUBLIC' "
+        "ORDER  BY r.created_at DESC";
+
+    MYSQL_STMT *st = mysql_stmt_init(db);
     if (mysql_stmt_prepare(st, q, strlen(q))) goto err;
 
-    uint32_t off = (uint32_t) (page * 50);
-    MYSQL_BIND inb = {0};
-    inb.buffer_type = MYSQL_TYPE_LONG;
-    inb.buffer = &off;
-    if (mysql_stmt_bind_param(st, &inb) || mysql_stmt_execute(st)) goto err;
+    if (mysql_stmt_execute(st)) goto err;
 
+    /* -------- 결과 바인딩 -------- */
     uint32_t id, mc;
-    char title[81];
-    unsigned long tl;
-    MYSQL_BIND outb[3] = {0};
-    outb[0].buffer_type = MYSQL_TYPE_LONG;
-    outb[0].buffer = &id;
-    outb[1].buffer_type = MYSQL_TYPE_STRING;
-    outb[1].buffer = title;
-    outb[1].buffer_length = 81;
-    outb[1].length = &tl;
-    outb[2].buffer_type = MYSQL_TYPE_LONG;
-    outb[2].buffer = &mc;
-    if (mysql_stmt_bind_result(st, outb)) goto err;
+    char title[81]; unsigned long tl = 0;
+    MYSQL_BIND rb[3] = {0};
+
+    rb[0].buffer_type = MYSQL_TYPE_LONG;
+    rb[0].buffer      = &id;
+
+    rb[1].buffer_type   = MYSQL_TYPE_STRING;
+    rb[1].buffer        = title;
+    rb[1].buffer_length = sizeof title;
+    rb[1].length        = &tl;
+
+    rb[2].buffer_type = MYSQL_TYPE_LONG;
+    rb[2].buffer      = &mc;
+
+    if (mysql_stmt_bind_result(st, rb)) goto err;
 
     *cnt = 0;
     while (mysql_stmt_fetch(st) == 0 && *cnt < max) {
@@ -184,8 +212,9 @@ int chat_room_list_public(size_t page,
     }
     mysql_stmt_close(st);
     return 0;
-err:
-    if (st) mysql_stmt_close(st);
+
+    err:
+        if (st) mysql_stmt_close(st);
     return -1;
 }
 
@@ -230,4 +259,28 @@ int chat_room_leave(uint32_t room, uint32_t user) {
 err:
     if (st) mysql_stmt_close(st);
     return -2;
+}
+
+int chat_room_clear_unread(uint32_t user_id, uint32_t room_id) {
+    MYSQL *db = get_db();
+    const char *q =
+            "DELETE u FROM chat_message_unread u "
+            "JOIN chat_message m ON m.id = u.message_id "
+            "WHERE u.user_id = ? AND m.room_id = ?";
+
+    MYSQL_STMT *st = mysql_stmt_init(db);
+    if (mysql_stmt_prepare(st, q, strlen(q))) goto err;
+
+    MYSQL_BIND b[2] = {0};
+    b[0].buffer_type = b[1].buffer_type = MYSQL_TYPE_LONG;
+    b[0].buffer = &user_id;
+    b[1].buffer = &room_id;
+
+    if (mysql_stmt_bind_param(st, b) || mysql_stmt_execute(st)) goto err;
+
+    mysql_stmt_close(st);
+    return 0;
+err:
+    if (st) mysql_stmt_close(st);
+    return -1;
 }

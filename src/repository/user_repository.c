@@ -212,3 +212,84 @@ int user_repository_get_info(const char *userid, struct user_info *out) {
     out->nickname[len2] = '\0';
     return 0;
 }
+
+int user_repository_get_id_by_userid(const char *uid, uint32_t *out_id)
+{
+    MYSQL *db = get_db();
+    MYSQL_STMT *st = mysql_stmt_init(db);
+    const char *q = "SELECT id FROM users WHERE userid=? LIMIT 1";
+    if (mysql_stmt_prepare(st,q,strlen(q))) goto err;
+
+    MYSQL_BIND b[1]={0};
+    b[0].buffer_type = MYSQL_TYPE_STRING;
+    b[0].buffer = (void*)uid;
+    unsigned long len=strlen(uid); b[0].length=&len;
+
+    if (mysql_stmt_bind_param(st,b) || mysql_stmt_execute(st)) goto err;
+
+    MYSQL_BIND rb={0}; uint32_t id; rb.buffer_type=MYSQL_TYPE_LONG; rb.buffer=&id;
+    if (mysql_stmt_bind_result(st,&rb) || mysql_stmt_fetch(st)) goto err;
+
+    *out_id=id; mysql_stmt_close(st); return 0;
+    err:
+        if(st) mysql_stmt_close(st); return -1;
+}
+
+int user_repository_get_info_by_id(uint32_t id,
+                                   struct user_info *out)
+{
+    MYSQL *db = get_db();
+    if (!db) return -1;
+
+    MYSQL_STMT *st = mysql_stmt_init(db);
+    const char *sql =
+        "SELECT userid, nickname "
+        "FROM users WHERE id = ? LIMIT 1";
+
+    if (mysql_stmt_prepare(st, sql, strlen(sql))) goto err;
+
+    /* -------- 파라미터(id) 바인드 -------- */
+    MYSQL_BIND pb = {0};
+    pb.buffer_type = MYSQL_TYPE_LONG;
+    pb.buffer      = &id;
+    pb.is_unsigned = 1;
+
+    if (mysql_stmt_bind_param(st, &pb) || mysql_stmt_execute(st)) goto err;
+
+    /* -------- 결과 바인드 -------- */
+    char uid_buf[USERID_MAX + 1]   = {0};
+    char nick_buf[NICK_MAX + 1]    = {0};
+    unsigned long uid_len = 0, nick_len = 0;
+
+    MYSQL_BIND rb[2] = {0};
+    rb[0].buffer_type   = MYSQL_TYPE_STRING;
+    rb[0].buffer        = uid_buf;
+    rb[0].buffer_length = USERID_MAX;
+    rb[0].length        = &uid_len;
+
+    rb[1].buffer_type   = MYSQL_TYPE_STRING;
+    rb[1].buffer        = nick_buf;
+    rb[1].buffer_length = NICK_MAX;
+    rb[1].length        = &nick_len;
+
+    if (mysql_stmt_bind_result(st, rb)) goto err;
+
+    int fs = mysql_stmt_fetch(st);
+    mysql_stmt_close(st);
+
+    if (fs == 0) {                          /* 검색 성공 */
+        strncpy(out->userid,   uid_buf,   USERID_MAX);
+        out->userid[USERID_MAX] = '\0';
+        strncpy(out->nickname, nick_buf,  NICK_MAX);
+        out->nickname[NICK_MAX] = '\0';
+        return 0;
+    }
+    if (fs == MYSQL_NO_DATA)                /* 존재하지 않음 */
+        return 1;
+
+    return -1;                              /* 그 외 fetch 오류 */
+
+    err:
+        if (st) mysql_stmt_close(st);
+    return -1;
+}

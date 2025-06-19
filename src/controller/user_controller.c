@@ -58,6 +58,8 @@ int user_controller_register(const struct http_request *req, char *resp_buf, siz
     int rc = user_service_register(juid->valuestring, jnick->valuestring, jpwd->valuestring);
     cJSON_Delete(root);
 
+    printf("rc = %d\n", rc);
+
     switch (rc) {
         case 0:
             return build_json_resp(resp_buf, resp_sz, HTTP_CREATED, NULL);
