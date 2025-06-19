@@ -40,14 +40,68 @@ static int build_json_resp(char *buf, size_t sz, enum http_status st, const char
 /* ---------- 경로에서 {id} 파싱 ---------- */
 static int path_id(const char *path,
                    const char *prefix, const char *suffix,
-                   uint32_t *out) {
+                   uint32_t *out)
+{
+    /* 1) 쿼리 문자열 제거 ------------------------------------ */
+    size_t full_len = strlen(path);
+    size_t plen = full_len;
+    const char *q = strchr(path, '?');
+    if (q) plen = (size_t)(q - path);          /* '?' 앞까지 */
+
+    /* 2) 접두/접미 길이 계산 ---------------------------------- */
     size_t pre = strlen(prefix);
-    if (strncmp(path, prefix, pre) != 0) return -1;
+    size_t suf = strlen(suffix);
+    if (plen < pre + suf) return -1;
+
+    /* 3) 접두/접미 비교 -------------------------------------- */
+    if (strncmp(path,            prefix, pre) != 0) return -1;
+    if (strncmp(path + plen - suf, suffix, suf) != 0) return -1;
+
+    /* 4) 중간의 숫자 부분 추출 -------------------------------- */
+    size_t num_len = plen - pre - suf;
+    if (num_len == 0 || num_len >= 16) return -1;
+
+    char numbuf[16];
+    memcpy(numbuf, path + pre, num_len);
+    numbuf[num_len] = '\0';
+
     char *end;
-    unsigned long v = strtoul(path + pre, &end, 10);
-    if (end == path + pre || strcmp(end, suffix) != 0) return -1;
-    *out = (uint32_t) v;
+    unsigned long v = strtoul(numbuf, &end, 10);
+    if (*end) return -1;
+
+    *out = (uint32_t)v;
     return 0;
+}
+
+/* ───── 쿠키 추출 ───── */
+static const char *cookie_get(const struct http_request *req, const char *key) {
+    const char *hdr = http_get_header(req, "Cookie");
+    if (!hdr) return NULL;
+    size_t k = strlen(key);
+    const char *p = hdr;
+    while ((p = strstr(p, key))) {
+        if (p[k] == '=') return p + k + 1;
+        ++p;
+    }
+    return NULL;
+}
+
+/* ───── 쿼리 ?page= & limit= 해석 (기본 page=0, limit=50) ───── */
+static void page_limit_from_path(const char *path, size_t *page, size_t *limit) {
+    *page = 0;
+    *limit = 50;
+    const char *q = strchr(path, '?');
+    if (!q) { return; }
+    ++q;
+    while (*q) {
+        if (strncmp(q, "page=", 5) == 0) { *page = (size_t) atoi(q + 5); } else if (strncmp(q, "limit=", 6) == 0) {
+            *limit = (size_t) atoi(q + 6);
+        }
+        q = strchr(q, '&');
+        if (!q) break;
+        ++q;
+    }
+    if (*limit == 0 || *limit > 200) *limit = 200;
 }
 
 /* ---------- 1. 방 생성 ----------  POST /chat/rooms */
@@ -222,4 +276,50 @@ int chat_controller_leave(const struct http_request *req,
                                "{\"error\":\"DB error\"}");
 
     return build_json_resp(resp, sz, HTTP_NO_CONTENT,NULL);
+}
+
+int chat_controller_get_messages(
+    const struct http_request *req,
+    char *resp, size_t sz
+) {
+    const char *sid = cookie_get(req, "KTA_SESSION_ID");
+    if (!sid)
+        return build_json_resp(resp, sz, HTTP_UNAUTHORIZED,
+                               "{\"error\":\"No session\"}");
+
+    uint32_t room;
+    if (path_id(req->path, "/chat/rooms/", "/messages", &room) != 0)
+        return build_json_resp(resp, sz, HTTP_BAD_REQUEST,
+                               "{\"error\":\"Bad path\"}");
+
+    size_t page, limit;
+    page_limit_from_path(req->path, &page, &limit);
+
+    struct chat_msg_dto msgs[200];
+    size_t cnt;
+    int rc = chat_service_get_messages(sid, room, page, limit, msgs, &cnt);
+
+    if (rc == CHAT_ERR_BAD_SESSION)
+        return build_json_resp(resp, sz, HTTP_UNAUTHORIZED,
+                               "{\"error\":\"Invalid session\"}");
+    if (rc != 0)
+        return build_json_resp(resp, sz, HTTP_INTERNAL_ERROR,
+                               "{\"error\":\"DB error\"}");
+
+    cJSON *arr = cJSON_CreateArray();
+    for (size_t i = 0; i < cnt; ++i) {
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddNumberToObject(o, "id", msgs[i].id);
+        cJSON_AddNumberToObject(o, "sender", msgs[i].sender_id);
+        cJSON_AddStringToObject(o, "sender_nick", msgs[i].sender_nick);
+        cJSON_AddStringToObject(o, "content", msgs[i].content);
+        cJSON_AddNumberToObject(o, "created_at", msgs[i].created_at);
+        cJSON_AddNumberToObject(o, "unread_cnt", msgs[i].unread_cnt);
+        cJSON_AddItemToArray(arr, o);
+    }
+    char *body = cJSON_PrintUnformatted(arr);
+    cJSON_Delete(arr);
+    int ret = build_json_resp(resp, sz, HTTP_OK, body);
+    free(body);
+    return ret;
 }

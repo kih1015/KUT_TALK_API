@@ -17,3 +17,6 @@ int chat_controller_join        (const struct http_request *req,
 /* 방 탈퇴 */
 int chat_controller_leave       (const struct http_request *req,
                                  char *resp, size_t sz);
+
+int chat_controller_get_messages(const struct http_request *req,
+                                 char *resp, size_t sz);

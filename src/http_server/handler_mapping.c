@@ -33,6 +33,7 @@ struct route ROUTES[] = {
     /* --- 정규식 --- */
     {"POST", "^/chat/rooms/([0-9]+)/join$", chat_controller_join, 1},
     {"DELETE", "^/chat/rooms/([0-9]+)/member$", chat_controller_leave, 1},
+    {"GET", "^/chat/rooms/([0-9]+)/messages$", chat_controller_get_messages, 1},
 };
 static const size_t ROUTE_CNT = sizeof ROUTES / sizeof *ROUTES;
 
@@ -66,6 +67,13 @@ static int cap_uint(const char *s, const regmatch_t *m, uint32_t *out) {
     if (*e) return -1;
     *out = (uint32_t) v;
     return 0;
+}
+
+/* ───── 고정 경로 비교: '?' 이후는 무시 ───── */
+static int path_equals(const char *path, const char *literal) {
+    size_t lit_len = strlen(literal);
+    return strncmp(path, literal, lit_len) == 0 &&
+           (path[lit_len] == '\0' || path[lit_len] == '?');
 }
 
 /* -------- 스레드 핸들러 -------- */
@@ -102,20 +110,42 @@ void *handle_client_thread(void *arg) {
 
         if (!ROUTES[i].is_regex) {
             /* 고정 */
-            if (strcmp(req.path, ROUTES[i].pattern) == 0)
+            if (path_equals(req.path, ROUTES[i].pattern))
                 rlen = ROUTES[i].handler(&req, resp, sizeof resp);
         } else {
             /* 정규식 */
+            const char *qmark = strchr(req.path, '?');
+            size_t plen = qmark
+                              ? (size_t) (qmark - req.path)
+                              : strlen(req.path);
+
+            char path_only[512];
+            if (plen >= sizeof path_only) plen = sizeof path_only - 1;
+            memcpy(path_only, req.path, plen);
+            path_only[plen] = '\0';
+
+            /* 1) 정규식 매칭 */
             regmatch_t m[2];
-            if (regexec(&ROUTES[i].re, req.path, 2, m, 0) == 0) {
-                /* room_id를 body 경유로 전달 */
-                struct http_request copy = req;
+            if (regexec(&ROUTES[i].re, path_only, 2, m, 0) == 0) {
+                /* 2) room_id 캡처 → uint32_t */
                 uint32_t room;
-                if (cap_uint(req.path, &m[1], &room) != 0) break;
+                if (cap_uint(path_only, &m[1], &room) != 0) break;
+
+                /* 3) 안전한 전달: 힙에 복사 */
                 char idbuf[16];
                 sprintf(idbuf, "%u", room);
-                copy.body = idbuf;
+                char *idheap = strdup(idbuf);
+                if (!idheap) {
+                    rlen = -2;
+                    break;
+                }
+
+                struct http_request copy = req; /* 전체 요청은 그대로 유지 */
+                copy.body = idheap; /* room_id 임시 전달 */
+
                 rlen = ROUTES[i].handler(&copy, resp, sizeof resp);
+
+                free(idheap); /* 사용 직후 해제 */
             }
         }
     }

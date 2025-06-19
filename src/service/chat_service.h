@@ -25,3 +25,10 @@ int chat_service_leave(
     const char *session_id, uint32_t room_id);
 
 int user_repository_get_id_by_userid(const char *userid, uint32_t *out_id);
+
+int chat_service_get_messages(const char *sid,
+                              uint32_t    room_id,
+                              size_t      page,
+                              size_t      limit,
+                              struct chat_msg_dto *out,
+                              size_t      *out_cnt);
