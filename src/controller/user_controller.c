@@ -101,7 +101,7 @@ int user_controller_login(const struct http_request *req, char *resp_buf, size_t
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: application/json\r\n"
             "Set-Cookie: KTA_SESSION_ID=%s; Path=/; Max-Age=604800; "
-            "HttpOnly; Secure; SameSite=Lax\r\n"
+            "SameSite=Lax\r\n"
             "Content-Length: %zu\r\n"
             "\r\n"
             "%s",
@@ -159,7 +159,7 @@ int user_controller_logout(const struct http_request *req, char *resp_buf, size_
         resp_buf, resp_sz,
         "HTTP/1.1 204 No Content\r\n"
         "Set-Cookie: KTA_SESSION_ID=deleted; Path=/; Max-Age=0; "
-        "HttpOnly; Secure; SameSite=Lax\r\n"
+        "SameSite=Lax\r\n"
         "Content-Length: 0\r\n\r\n"
     );
     return (n < 0 || (size_t) n >= resp_sz) ? -1 : n;
