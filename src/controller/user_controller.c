@@ -74,42 +74,68 @@ int user_controller_register(const struct http_request *req, char *resp_buf, siz
 #define BODY_OK   "{\"message\":\"Login success\"}"
 #define BODY_FAIL "{\"error\":\"Invalid credentials\"}"
 
-int user_controller_login(const struct http_request *req, char *resp_buf, size_t resp_sz) {
+int user_controller_login(const struct http_request *req,
+                          char *resp_buf, size_t resp_sz) {
     const char *body = req->body;
-    if (!body)
-        return build_json_resp(resp_buf, resp_sz, HTTP_BAD_REQUEST, "{\"error\":\"Missing body\"}");
+    if (!body) {
+        return build_json_resp(resp_buf, resp_sz,
+                               HTTP_BAD_REQUEST,
+                               "{\"error\":\"Missing body\"}");
+    }
 
     cJSON *root = cJSON_Parse(body);
-    if (!root)
-        return build_json_resp(resp_buf, resp_sz, HTTP_BAD_REQUEST, "{\"error\":\"Invalid JSON\"}");
+    if (!root) {
+        return build_json_resp(resp_buf, resp_sz,
+                               HTTP_BAD_REQUEST,
+                               "{\"error\":\"Invalid JSON\"}");
+    }
 
     cJSON *juid = cJSON_GetObjectItem(root, "userid");
-    cJSON *jpw = cJSON_GetObjectItem(root, "password");
+    cJSON *jpw  = cJSON_GetObjectItem(root, "password");
     if (!cJSON_IsString(juid) || !cJSON_IsString(jpw)) {
         cJSON_Delete(root);
-        return build_json_resp(resp_buf, resp_sz, HTTP_BAD_REQUEST, "{\"error\":\"Missing fields\"}");
+        return build_json_resp(resp_buf, resp_sz,
+                               HTTP_BAD_REQUEST,
+                               "{\"error\":\"Missing fields\"}");
     }
 
     char sid[SESSION_ID_LEN + 1] = {0};
-    int rc = user_service_login(juid->valuestring, jpw->valuestring, sid);
+    int rc = user_service_login(juid->valuestring,
+                                jpw->valuestring,
+                                sid);
     cJSON_Delete(root);
 
     if (rc == 0) {
-        /* 성공 */
+        /* 로그인 성공: Set-Cookie 헤더 + JSON 바디에 sid */
+        char out_body[SESSION_ID_LEN + 32];
+        int blen = snprintf(out_body, sizeof out_body,
+                            "{\"sid\":\"%s\"}", sid);
+        if (blen < 0 || blen >= (int)sizeof out_body) {
+            return build_json_resp(resp_buf, resp_sz,
+                                   HTTP_INTERNAL_ERROR,
+                                   "{\"error\":\"Server error\"}");
+        }
+
         int n = snprintf(
             resp_buf, resp_sz,
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: application/json\r\n"
-            "Set-Cookie: KTA_SESSION_ID=%s; Path=/; Max-Age=604800; "
-            "SameSite=Lax\r\n"
-            "Content-Length: %zu\r\n"
+            "Set-Cookie: KTA_SESSION_ID=%s; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax\r\n"
+            "Content-Length: %d\r\n"
             "\r\n"
             "%s",
-            sid, strlen(BODY_OK), BODY_OK
+            sid,
+            blen,
+            out_body
         );
-        return (n < 0 || (size_t) n >= resp_sz) ? -1 : n;
+        return (n < 0 || (size_t)n >= resp_sz) ? -1 : n;
     }
-    return build_json_resp(resp_buf, resp_sz, (rc == -1) ? HTTP_UNAUTHORIZED : HTTP_INTERNAL_ERROR,BODY_FAIL);
+
+    /* 로그인 실패 */
+    return build_json_resp(resp_buf, resp_sz,
+                           (rc == -1) ? HTTP_UNAUTHORIZED
+                                      : HTTP_INTERNAL_ERROR,
+                           BODY_FAIL);
 }
 
 /* ---------- 내 정보 ---------- */
