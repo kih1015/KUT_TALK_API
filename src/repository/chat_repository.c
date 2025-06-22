@@ -429,3 +429,61 @@ int chat_room_is_member(uint32_t room_id, uint32_t user_id)
         mysql_stmt_close(st);
     return -1;
 }
+
+int chat_repo_count_members(uint32_t room_id, size_t *out_cnt) {
+    MYSQL *db = get_db();
+    const char *q = "SELECT COUNT(*) FROM chat_room_member WHERE room_id = ?";
+    MYSQL_STMT *st = mysql_stmt_init(db);
+    if (!st) return -1;
+
+    if (mysql_stmt_prepare(st, q, strlen(q))) goto err;
+
+    // bind input param
+    MYSQL_BIND pb[1] = {0};
+    pb[0].buffer_type   = MYSQL_TYPE_LONG;
+    pb[0].buffer        = &room_id;
+    pb[0].is_unsigned   = 1;
+    if (mysql_stmt_bind_param(st, pb) || mysql_stmt_execute(st))
+        goto err;
+
+    // bind result
+    unsigned long cnt = 0;
+    MYSQL_BIND rb[1] = {0};
+    rb[0].buffer_type = MYSQL_TYPE_LONG;
+    rb[0].buffer      = &cnt;
+    rb[0].is_unsigned = 1;
+    if (mysql_stmt_bind_result(st, rb)) goto err;
+    if (mysql_stmt_fetch(st) != 0)    goto err;
+
+    *out_cnt = (size_t)cnt;
+    mysql_stmt_close(st);
+    return 0;
+
+    err:
+        if (st) mysql_stmt_close(st);
+    return -1;
+}
+
+int chat_repo_delete_room(uint32_t room_id) {
+    MYSQL *db = get_db();
+    const char *q = "DELETE FROM chat_room WHERE id = ?";
+    MYSQL_STMT *st = mysql_stmt_init(db);
+    if (!st) return -1;
+
+    if (mysql_stmt_prepare(st, q, strlen(q))) goto err;
+
+    // bind input param
+    MYSQL_BIND pb[1] = {0};
+    pb[0].buffer_type   = MYSQL_TYPE_LONG;
+    pb[0].buffer        = &room_id;
+    pb[0].is_unsigned   = 1;
+    if (mysql_stmt_bind_param(st, pb) || mysql_stmt_execute(st))
+        goto err;
+
+    mysql_stmt_close(st);
+    return 0;
+
+    err:
+        if (st) mysql_stmt_close(st);
+    return -1;
+}

@@ -61,3 +61,7 @@ int chat_message_list(
 );
 
 int chat_room_is_member(uint32_t room_id, uint32_t user_id);
+
+int chat_repo_delete_room(uint32_t room_id);
+
+int chat_repo_count_members(uint32_t room_id, size_t *out_cnt);

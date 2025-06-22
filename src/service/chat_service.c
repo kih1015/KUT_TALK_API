@@ -74,12 +74,33 @@ int chat_service_join(const char *sid, uint32_t room_id) {
 /* ──────────────────────────────────────────────────────── */
 int chat_service_leave(const char *sid, uint32_t room_id) {
     uint32_t me;
-    if (uid_from_session(sid, &me) != 0) return CHAT_ERR_BAD_SESSION;
+    if (uid_from_session(sid, &me) != 0) {
+        return CHAT_ERR_BAD_SESSION;
+    }
 
+    // 1) 실제 탈퇴
     int rc = chat_room_leave(room_id, me); /* 0 / -1 / -2 */
-    if (rc != 0) return rc;
+    if (rc != 0) {
+        return rc;
+    }
 
-    chat_room_clear_unread(me, room_id); /* 미읽음 정리 */
+    // 2) 내 unread 정리
+    chat_room_clear_unread(me, room_id);
+
+    // 3) 남은 멤버 수 조회
+    size_t member_cnt = 0;
+    if (chat_repo_count_members(room_id, &member_cnt) != 0) {
+        // 조회 실패해도 에러를 강제하기보단 무시할 수도 있습니다
+        return CHAT_ERR_INTERNAL;
+    }
+
+    // 4) 나 혼자 남았으면 방 자체를 삭제
+    if (member_cnt == 0) {
+        if (chat_repo_delete_room(room_id) != 0) {
+            return CHAT_ERR_INTERNAL;
+        }
+    }
+
     return 0;
 }
 
