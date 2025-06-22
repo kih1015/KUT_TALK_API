@@ -3,6 +3,7 @@
 #include "repository/chat_repository.h"     /* DTO 구조체 */
 
 #define CHAT_ERR_BAD_SESSION   -401   /* 세션 없음/만료 */
+#define CHAT_ERR_INTERNAL     (-3)
 
 int chat_service_create_room(
     const char *session_id,
